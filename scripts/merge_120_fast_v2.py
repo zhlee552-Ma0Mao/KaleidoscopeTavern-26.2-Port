@@ -72,6 +72,7 @@ for relstr in [
     "com/github/ysbbbbbb/kaleidoscopetavern/item/ShakerItem.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/crafting/recipe/ShakerRecipe.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/block/brew/PotionBottleBlock.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/block/brew/BottleBlock.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/block/mixology/GlasswareBlock.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/api/client/IModelModifyRotationAfterBake.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/api/entity/PlayerExtraData.java",
@@ -175,6 +176,31 @@ if p.exists():
     t = p.read_text(encoding="utf-8").replace(
         "ItemHandlerHelper.insertItemStacked(storage, copy, false)",
         "net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(storage, copy, false)")
+    p.write_text(t, encoding="utf-8")
+
+# Compatibility accessors keep legacy NeoForge resolver code working on the 26.2 data model.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/datamap/data/DrinkEffectData.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    if "entriesForLevel(int brewLevel)" not in t:
+        pos = t.index("\n    /**", t.index("public record DrinkEffectData"))
+        compat = """
+    public List<Entry> entriesForLevel(int brewLevel) {
+        if (effects.isEmpty()) return List.of();
+        int index = Math.max(0, Math.min(brewLevel, effects.size()) - 1);
+        return effects.get(index);
+    }
+
+"""
+        t = t[:pos] + "\n" + compat + t[pos:]
+    if "durationTicks()" not in t:
+        marker2 = "    public record Entry(Holder<MobEffect> effect, int duration, int amplifier, float probability) {"
+        t = t.replace(marker2, marker2 + "\n        public int durationTicks() { return duration * 20; }")
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/network/message/DrinkEffectSyncS2CMessage.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace("data.item().value()", "data.item()")
     p.write_text(t, encoding="utf-8")
 
 # Do not globally rewrite registry references: some references are already concrete
