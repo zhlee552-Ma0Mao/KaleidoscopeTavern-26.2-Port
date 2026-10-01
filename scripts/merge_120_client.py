@@ -258,3 +258,14 @@ regs = marker + """
         event.registerSpriteSet(ModParticles.FIREFLY_INCENSE_LARGE_PARTICLE.get(), FireflyIncenseLargeParticle.Provider::new);"""
 pt = pt.replace(marker, regs)
 particle_registry.write_text(pt, encoding="utf-8")
+
+# Tavern 1.2's "slightly_tipsy" effect is not just a status icon: its client camera
+# roll is part of the original gameplay. Keep the official NeoForge implementation
+# instead of relying on the generic added-file merge (the class also exists in 26.1.2).
+camera_event = work / "com/github/ysbbbbbb/kaleidoscopetavern/client/event/CameraAnglesEvent.java"
+camera_src = base / "com/github/ysbbbbbb/kaleidoscopetavern/client/event/CameraAnglesEvent.java"
+if camera_src.exists():
+    camera_event.parent.mkdir(parents=True, exist_ok=True)
+    camera_event.write_text(camera_src.read_text(encoding="utf-8"), encoding="utf-8")
+    with (root / "merged-files.txt").open("a", encoding="utf-8") as out:
+        out.write("CLIENT PARITY CameraAnglesEvent.java (slightly_tipsy camera roll)\n")
