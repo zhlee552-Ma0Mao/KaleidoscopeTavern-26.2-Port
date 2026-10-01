@@ -53,6 +53,11 @@ jobs:
           test -d src/main/resources/assets/kaleidoscope_tavern/sounds
           test -f src/main/resources/assets/kaleidoscope_tavern/blockstates/base_sandwich_board.json
           test -f src/main/resources/assets/kaleidoscope_tavern/blockstates/poppy_sandwich_board.json
+          test -f src/main/resources/assets/kaleidoscope_tavern/models/block/deco/sandwich_board/base/rot_0.json
+          test -f src/main/resources/assets/kaleidoscope_tavern/models/block/deco/sandwich_board/bottom/rot_15.json
+          grep -q 'IntegerProperty ROTATION = BlockStateProperties.ROTATION_16' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/block/deco/SandwichBoardBlock.java
+          grep -q 'builder.add(ROTATION, HALF, WATERLOGGED)' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/block/deco/SandwichBoardBlock.java
+          grep -q 'item.kaleidoscope_tavern.sandwich_board' src/main/resources/assets/kaleidoscope_tavern/lang/zh_cn.json
           grep -q 'registrar.playToClient(DrinkEffectSyncS2CMessage.TYPE' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java
           grep -q 'registrar.playToServer(ClearShakerC2SMessage.TYPE' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java
           test "$(find src/main/resources/data/kaleidoscope_tavern -type f | wc -l)" -gt 0
