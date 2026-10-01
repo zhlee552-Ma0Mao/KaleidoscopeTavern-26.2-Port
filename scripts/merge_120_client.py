@@ -77,3 +77,57 @@ for relname in [
         t = t.replace("implements BlockTintsFactory", "")
         t = re.sub(r"\s*@Override\s*\n\s*public void collect\([\s\S]*?\n\s*}\n}", "\n}", t, count=1)
         p.write_text(t, encoding="utf-8")
+
+
+# Explicit NeoForge 26.2 bridges for 1.2 client-only features.
+(work / "com/github/ysbbbbbb/kaleidoscopetavern/client/render/misc/SignatureCocktailColor.java").write_text("""package com.github.ysbbbbbb.kaleidoscopetavern.client.render.misc;
+import com.github.ysbbbbbb.kaleidoscopetavern.blockentity.mixology.SignatureCocktailBlockEntity;
+import net.minecraft.client.color.block.BlockTintSource;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+public final class SignatureCocktailColor {
+ private SignatureCocktailColor() {}
+ public static class Block implements BlockTintSource {
+  public int color(BlockState state) { return 0xFFFFFFFF; }
+  public int colorInWorld(BlockState state, BlockAndTintGetter level, BlockPos pos) {
+   if (level.getBlockEntity(pos) instanceof SignatureCocktailBlockEntity be) return 0xFF000000 | (be.getColor() & 0xFFFFFF);
+   return 0xFFFFFFFF;
+  }
+ }
+}
+""", encoding="utf-8")
+
+(work / "com/github/ysbbbbbb/kaleidoscopetavern/client/render/misc/PotionBottleColor.java").write_text("""package com.github.ysbbbbbb.kaleidoscopetavern.client.render.misc;
+import com.github.ysbbbbbb.kaleidoscopetavern.blockentity.brew.PotionBottleBlockEntity;
+import net.minecraft.client.color.block.BlockTintSource;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.level.block.state.BlockState;
+public class PotionBottleColor implements BlockTintSource {
+ public int color(BlockState state) { return 0xFFFFFFFF; }
+ public int colorInWorld(BlockState state, BlockAndTintGetter level, BlockPos pos) {
+  if (level.getBlockEntity(pos) instanceof PotionBottleBlockEntity be && !be.getPotionStack().isEmpty()) {
+   PotionContents contents = be.getPotionStack().get(DataComponents.POTION_CONTENTS);
+   if (contents != null) return 0xFF000000 | (contents.getColor() & 0xFFFFFF);
+  }
+  return 0xFFFFFFFF;
+ }
+}
+""", encoding="utf-8")
+
+p = work / "com/github/ysbbbbbb/kaleidoscopetavern/client/gui/overlay/ShakerOverlay.java"
+if p.exists():
+    t = (ref / "com/github/ysbbbbbb/kaleidoscopetavern/client/gui/overlay/ShakerOverlay.java").read_text(encoding="utf-8")
+    t = t.replace("import net.fabricmc.api.EnvType;\n", "").replace("import net.fabricmc.api.Environment;\n", "")
+    t = t.replace("import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;\n", "")
+    t = t.replace("import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;\n", "")
+    t = t.replace("@Environment(EnvType.CLIENT)\n", "")
+    t = t.replace("implements HudElement", "implements net.neoforged.neoforge.client.gui.GuiLayer")
+    t = re.sub(r"\n    public static void register\(\) \{[\s\S]*?\n    \}\n", "\n", t, count=1)
+    for reg in ["ModBlocks","ModItems"]:
+        pat = re.compile(r"\b" + reg + r"\.([A-Z][A-Z0-9_]*)\b(?!\.get\(\))")
+        t = pat.sub(lambda m: reg + "." + m.group(1) + ".get()", t)
+    p.write_text(t, encoding="utf-8")
