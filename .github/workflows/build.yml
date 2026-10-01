@@ -1,0 +1,78 @@
+name: Tavern 26.2 Port CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout port lab
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Clone official NeoForge 26.1.2 scaffold
+        run: git clone --depth 1 --branch 26.1.2 https://github.com/KaleidoscopeMods/KaleidoscopeTavern.git upstream-official-26.1.2
+
+      - name: Clone official 1.2.0 feature source
+        run: git clone --depth 1 --branch 1.21.1 https://github.com/KaleidoscopeMods/KaleidoscopeTavern.git upstream-official-1.21.1
+
+      - name: Clone Refabricated 26.2 API reference
+        run: git clone --depth 1 --branch 26.2-fabric https://github.com/NightEpiphany/KaleidoscopeTavern-Refabricated.git upstream-refabricated-26.2
+
+      - name: Prepare NeoForge 26.2 port workspace
+        run: python3 scripts/prepare_port.py
+
+      - name: Show merge summary
+        run: |
+          echo "Merged file count:"
+          wc -l merged-files.txt || true
+          head -100 merged-files.txt || true
+
+      - name: Compile common/server core
+        id: compile
+        working-directory: work
+        continue-on-error: true
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --refresh-dependencies clean compileJava --stacktrace 2>&1 | tee ../compile.log
+          test ${PIPESTATUS[0]} -eq 0
+
+      - name: Build JAR
+        id: jar
+        if: steps.compile.outcome == 'success'
+        working-directory: work
+        continue-on-error: true
+        run: |
+          ./gradlew --no-daemon jar --stacktrace 2>&1 | tee ../jar.log
+          test ${PIPESTATUS[0]} -eq 0
+
+      - name: Collect compiler errors
+        if: always()
+        run: |
+          grep -E "error:|cannot find symbol|does not exist|no suitable method|incompatible types|has private access|cannot be applied" compile.log > compile-errors.txt || true
+          cp merged-files.txt port-merged-files.txt || true
+          mkdir -p output
+          cp compile.log compile-errors.txt port-merged-files.txt output/ || true
+          cp jar.log output/ 2>/dev/null || true
+          cp work/build/libs/*.jar output/ 2>/dev/null || true
+
+      - name: Upload build/debug artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tavern-26.2-port-ci
+          path: output/
+          if-no-files-found: warn
+
+      - name: Fail job if compile failed
+        if: steps.compile.outcome != 'success'
+        run: exit 1
