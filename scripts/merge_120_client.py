@@ -134,6 +134,21 @@ if p.exists():
     p.write_text(t, encoding="utf-8")
 
 
+# Sandwich boards use ROTATION_16, while the 26.1.2 text-renderer scaffold assumes
+# ChalkboardBlock.FACING. Reading FACING from a sandwich board crashes the render thread.
+text_renderer = work / "com/github/ysbbbbbb/kaleidoscopetavern/client/render/block/TextBlockEntityRender.java"
+if text_renderer.exists():
+    t = text_renderer.read_text(encoding="utf-8")
+    t = t.replace("import com.github.ysbbbbbb.kaleidoscopetavern.block.deco.ChalkboardBlock;\n",
+                  "import com.github.ysbbbbbb.kaleidoscopetavern.block.deco.ChalkboardBlock;\nimport com.github.ysbbbbbb.kaleidoscopetavern.block.deco.SandwichBoardBlock;\n")
+    t = t.replace("state.facing = textBlock.getBlockState().getValue(ChalkboardBlock.FACING);",
+                  """if (textBlock.getBlockState().hasProperty(ChalkboardBlock.FACING)) {
+            state.facing = textBlock.getBlockState().getValue(ChalkboardBlock.FACING);
+        } else if (textBlock.getBlockState().hasProperty(SandwichBoardBlock.ROTATION)) {
+            state.facing = net.minecraft.core.Direction.fromYRot(textBlock.getBlockState().getValue(SandwichBoardBlock.ROTATION) * 22.5f);
+        }""")
+    text_renderer.write_text(t, encoding="utf-8")
+
 # Wire the new 1.2 client features into NeoForge's 26.2 client events.
 setup = work / "com/github/ysbbbbbb/kaleidoscopetavern/client/init/ClientSetupEvent.java"
 st = setup.read_text(encoding="utf-8")
