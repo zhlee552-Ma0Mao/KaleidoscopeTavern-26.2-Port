@@ -313,7 +313,7 @@ if p.exists():
 
 # The feature merge can leave duplicate resource roots from the scaffold and 1.2 source.
 # Keep one canonical copy of identical resource paths so Gradle 9 processResources can package the jar.
-for duplicate_root in [w / "src/generated/resources"]:
+for duplicate_root in [Path("work") / "src/generated/resources"]:
     if duplicate_root.exists():
         import shutil
         shutil.rmtree(duplicate_root)
