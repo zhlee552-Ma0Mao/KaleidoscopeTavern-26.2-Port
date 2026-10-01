@@ -116,6 +116,39 @@ if p.exists() and src.exists():
         t = t[:t.rfind("}")] + "\n" + rt[start:end] + "\n}\n"
         p.write_text(t, encoding="utf-8")
 
+# Complete imports/constants needed by the selectively copied 1.2 helper methods.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    imports = """import com.github.ysbbbbbb.kaleidoscopetavern.util.neo.IItemHandler;
+import com.github.ysbbbbbb.kaleidoscopetavern.util.neo.PlayerMainInvWrapper;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.level.Level;
+"""
+    if "util.neo.IItemHandler" not in t:
+        t = t.replace("package com.github.ysbbbbbb.kaleidoscopetavern.util;\n",
+                      "package com.github.ysbbbbbb.kaleidoscopetavern.util;\n\n" + imports)
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/item/BottleBlockItem.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    if "MIN_BREW_LEVEL_FOR_SHAKER" not in t.split("public static boolean isValidForShaker", 1)[0]:
+        t = t.replace('public static final String BREW_LEVEL_KEY = "BrewLevel";',
+                      'public static final String BREW_LEVEL_KEY = "BrewLevel";\n    public static final int MIN_BREW_LEVEL_FOR_SHAKER = 4;')
+    p.write_text(t, encoding="utf-8")
+
+# ShakerBlockEntity uses NeoForge's ItemStackHandler; use NeoForge's matching helper.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/blockentity/mixology/ShakerBlockEntity.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    if "ItemHandlerHelper" not in t:
+        t = t.replace("import net.neoforged.neoforge.items.ItemStackHandler;",
+                      "import net.neoforged.neoforge.items.ItemStackHandler;\nimport net.neoforged.neoforge.items.ItemHandlerHelper;")
+    t = t.replace("ItemUtils.insertItemStacked(storage, copy, false)",
+                  "ItemHandlerHelper.insertItemStacked(storage, copy, false)")
+    p.write_text(t, encoding="utf-8")
+
 # Do not globally rewrite registry references: some references are already concrete
 # values or appear in declarations. Targeted copied classes above are adapted separately.
 
