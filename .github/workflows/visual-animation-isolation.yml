@@ -1,0 +1,163 @@
+name: Visual Animation Isolation 26.2
+
+on:
+  push:
+    branches:
+      - visual-animation-lab
+    paths:
+      - '.github/workflows/visual-animation-isolation.yml'
+  workflow_dispatch:
+
+jobs:
+  isolate:
+    strategy:
+      fail-fast: false
+      matrix:
+        case:
+          - baseline
+          - sparkle
+          - animated
+          - fresh
+          - sparkle_animated
+          - sparkle_fresh
+          - all
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install Xvfb
+        run: |
+          set -euxo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+
+      - name: Prepare exact case
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 https://github.com/NeoForgeMDKs/MDK-26.2-ModDevGradle.git lab
+          mkdir -p lab/run/mods lab/run/resourcepacks
+
+          CASE="${{ matrix.case }}"
+
+          want_sparkle=0
+          want_animated=0
+          want_fresh=0
+          case "$CASE" in
+            baseline) ;;
+            sparkle) want_sparkle=1 ;;
+            animated) want_animated=1 ;;
+            fresh) want_fresh=1 ;;
+            sparkle_animated) want_sparkle=1; want_animated=1 ;;
+            sparkle_fresh) want_sparkle=1; want_fresh=1 ;;
+            all) want_sparkle=1; want_animated=1; want_fresh=1 ;;
+          esac
+
+          if [ "$want_sparkle" = 1 ]; then
+            curl -fL --retry 4               "https://github.com/sdf123098/Sparkle-Morpher/releases/download/v1.2.9/sparkle-morpher-1.2.9-neo26.2.jar"               -o lab/run/mods/sparkle-morpher-1.2.9-neo26.2.jar
+          fi
+
+          if [ "$want_animated" = 1 ]; then
+            curl -fL --retry 4               "https://edge.forgecdn.net/files/8969/269/animateditems-neoforge-26.2-1.1.0.jar"               -o lab/run/mods/animateditems-neoforge-26.2-1.1.0.jar
+            curl -fL --retry 4               "https://edge.forgecdn.net/files/8891/706/geckolib-neoforge-26.2-5.5.6.jar"               -o lab/run/mods/geckolib-neoforge-26.2-5.5.6.jar
+          fi
+
+          if [ "$want_fresh" = 1 ]; then
+            python3 - <<'PY'
+          import json, urllib.request, os
+          versions = [
+              ("pAGUBfhR", "lab/run/mods"),
+              ("uPdeEy2P", "lab/run/mods"),
+              ("RGIzA5em", "lab/run/resourcepacks"),
+          ]
+          for vid, target in versions:
+              with urllib.request.urlopen("https://api.modrinth.com/v2/version/" + vid) as r:
+                  d = json.load(r)
+              f = next((x for x in d["files"] if x.get("primary")), d["files"][0])
+              out = os.path.join(target, f["filename"])
+              urllib.request.urlretrieve(f["url"], out)
+              print(out)
+          PY
+          fi
+
+          FRESH=""
+          if [ "$want_fresh" = 1 ]; then
+            FRESH="$(basename "$(find lab/run/resourcepacks -type f -name '*.zip' | head -1)")"
+          fi
+
+          if [ -n "$FRESH" ]; then
+            cat > lab/run/options.txt <<EOF
+          resourcePacks:["vanilla","mod_resources","file/$FRESH"]
+          incompatibleResourcePacks:[]
+          pauseOnLostFocus:false
+          fullscreen:false
+          overrideWidth:960
+          overrideHeight:540
+          EOF
+          else
+            cat > lab/run/options.txt <<EOF
+          resourcePacks:["vanilla","mod_resources"]
+          incompatibleResourcePacks:[]
+          pauseOnLostFocus:false
+          fullscreen:false
+          overrideWidth:960
+          overrideHeight:540
+          EOF
+          fi
+
+          echo "CASE=$CASE"
+          find lab/run/mods -maxdepth 1 -type f -printf '%f\n' | sort || true
+          find lab/run/resourcepacks -maxdepth 1 -type f -printf '%f\n' | sort || true
+
+      - name: Client smoke
+        run: |
+          set +e
+          cd lab
+          chmod +x gradlew
+          export LIBGL_ALWAYS_SOFTWARE=1
+          timeout 300s xvfb-run -a -s "-screen 0 1280x720x24"             ./gradlew --no-daemon runClient > ../client-console.log 2>&1
+          RC=$?
+          cd ..
+          cp lab/run/logs/latest.log client-latest.log 2>/dev/null || true
+          LOG="client-latest.log"
+          [ -f "$LOG" ] || LOG="client-console.log"
+
+          {
+            echo "CASE=${{ matrix.case }}"
+            echo "EXIT=$RC"
+            grep -q "Missing uniform Globals" "$LOG" && echo "MISSING_UNIFORM_GLOBALS=YES" || echo "MISSING_UNIFORM_GLOBALS=NO"
+            grep -q "Sound engine started" "$LOG" && echo "SOUND_ENGINE_STARTED=YES" || echo "SOUND_ENGINE_STARTED=NO"
+            grep -q "Reloading ResourceManager" "$LOG" && echo "RESOURCE_RELOAD_REACHED=YES" || echo "RESOURCE_RELOAD_REACHED=NO"
+            grep -qi "Animated Items 1.1.0" "$LOG" && echo "ANIMATED_ITEMS_PRESENT=YES" || echo "ANIMATED_ITEMS_PRESENT=NO"
+            grep -qi "Sparkle's Morpher 1.2.9" "$LOG" && echo "SPARKLE_PRESENT=YES" || echo "SPARKLE_PRESENT=NO"
+            grep -qi "Entity Model Features 3.3.7" "$LOG" && echo "EMF_PRESENT=YES" || echo "EMF_PRESENT=NO"
+            grep -qi "Entity Texture Features 7.2.4" "$LOG" && echo "ETF_PRESENT=YES" || echo "ETF_PRESENT=NO"
+            if grep -Eqi "NoClassDefFoundError|MixinApplyError|ModLoadingException|Failed to complete lifecycle event" "$LOG"; then
+              echo "MOD_FATAL_PATTERN=YES"
+            else
+              echo "MOD_FATAL_PATTERN=NO"
+            fi
+          } | tee result.txt
+
+          # Isolation workflow itself should always finish and upload evidence.
+          exit 0
+
+      - name: Upload case
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-isolation-${{ matrix.case }}
+          path: |
+            result.txt
+            client-latest.log
+            client-console.log
+          if-no-files-found: warn
