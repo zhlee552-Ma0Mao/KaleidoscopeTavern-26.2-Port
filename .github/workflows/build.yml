@@ -74,13 +74,18 @@ jobs:
           online-mode=false
           EOF
           rm -rf run/server/world run/server/logs
-          timeout 180s ./gradlew --no-daemon runServer > ../server-first.log 2>&1 &
+          mkfifo ../server-first.stdin
+          ./gradlew --no-daemon runServer < ../server-first.stdin > ../server-first.log 2>&1 &
           SERVER_PID=$!
+          exec 3>../server-first.stdin
           for i in {1..75}; do grep -q "Done (" run/server/logs/latest.log 2>/dev/null && break; sleep 2; done
           grep -q "Done (" run/server/logs/latest.log
-          python3 ../scripts/ci_rcon.py save-all
+          printf 'save-all\n' >&3
           sleep 3
-          python3 ../scripts/ci_rcon.py stop
+          printf 'stop\n' >&3
+          exec 3>&-
+          for i in {1..60}; do ! kill -0 $SERVER_PID 2>/dev/null && break; sleep 1; done
+          ! kill -0 $SERVER_PID 2>/dev/null
           wait $SERVER_PID
           grep -q "All dimensions are saved" run/server/logs/latest.log
           test -f run/server/world/level.dat
@@ -92,13 +97,18 @@ jobs:
         continue-on-error: true
         run: |
           rm -rf run/server/logs
-          timeout 180s ./gradlew --no-daemon runServer > ../server-restart.log 2>&1 &
+          mkfifo ../server-restart.stdin
+          ./gradlew --no-daemon runServer < ../server-restart.stdin > ../server-restart.log 2>&1 &
           SERVER_PID=$!
+          exec 3>../server-restart.stdin
           for i in {1..75}; do grep -q "Done (" run/server/logs/latest.log 2>/dev/null && break; sleep 2; done
           grep -q "Done (" run/server/logs/latest.log
-          python3 ../scripts/ci_rcon.py save-all
+          printf 'save-all\n' >&3
           sleep 3
-          python3 ../scripts/ci_rcon.py stop
+          printf 'stop\n' >&3
+          exec 3>&-
+          for i in {1..60}; do ! kill -0 $SERVER_PID 2>/dev/null && break; sleep 1; done
+          ! kill -0 $SERVER_PID 2>/dev/null
           wait $SERVER_PID
           grep -q "All dimensions are saved" run/server/logs/latest.log
           test -f run/server/world/level.dat
