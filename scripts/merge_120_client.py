@@ -19,7 +19,7 @@ for rel in added:
         continue
     rs, fs = ref / rel, feature / rel
     text = (rs if rs.exists() else fs).read_text(encoding="utf-8")
-    if "net.fabricmc.fabric" in text:
+    if "net.fabricmc.fabric" in text and not s.startswith(prefix + "particle/"):
         text = fs.read_text(encoding="utf-8")
     else:
         text = text.replace("import net.fabricmc.api.EnvType;\n", "")
