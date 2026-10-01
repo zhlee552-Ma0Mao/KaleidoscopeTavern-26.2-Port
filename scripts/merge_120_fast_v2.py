@@ -311,6 +311,13 @@ if p.exists():
         "ItemUtils.insertItemStacked(storage, copy, false)")
     p.write_text(t, encoding="utf-8")
 
+# The feature merge can leave duplicate resource roots from the scaffold and 1.2 source.
+# Keep one canonical copy of identical resource paths so Gradle 9 processResources can package the jar.
+for duplicate_root in [w / "src/generated/resources"]:
+    if duplicate_root.exists():
+        import shutil
+        shutil.rmtree(duplicate_root)
+
 # Do not globally rewrite registry references: some references are already concrete
 # values or appear in declarations. Targeted copied classes above are adapted separately.
 
