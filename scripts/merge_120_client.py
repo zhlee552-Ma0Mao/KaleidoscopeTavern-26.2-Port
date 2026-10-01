@@ -139,6 +139,7 @@ setup = work / "com/github/ysbbbbbb/kaleidoscopetavern/client/init/ClientSetupEv
 st = setup.read_text(encoding="utf-8")
 st = st.replace("import com.github.ysbbbbbb.kaleidoscopetavern.client.render.block.*;\n",
 """import com.github.ysbbbbbb.kaleidoscopetavern.client.render.block.*;
+import com.github.ysbbbbbb.kaleidoscopetavern.client.model.mixology.ShakerModel;
 import com.github.ysbbbbbb.kaleidoscopetavern.client.gui.overlay.ShakerOverlay;
 import com.github.ysbbbbbb.kaleidoscopetavern.client.render.misc.PotionBottleColor;
 import com.github.ysbbbbbb.kaleidoscopetavern.client.render.misc.SignatureCocktailColor;
@@ -160,6 +161,11 @@ extra = needle + """
         BlockEntityRenderers.register(ModBlocks.GLASSWARE_HOLDER_BE.get(), GlasswareHolderBlockEntityRender::new);"""
 st = st.replace(needle, extra)
 st = st.rsplit("}",1)[0] + """
+    @SubscribeEvent
+    public static void onRegisterLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(ShakerModel.LAYER_LOCATION, ShakerModel::createBodyLayer);
+    }
+
     @SubscribeEvent
     public static void onRegisterGuiOverlays(RegisterGuiLayersEvent event) {
         event.registerAbove(CROSSHAIR, KaleidoscopeTavern.modLoc("shaker_overlay"), new ShakerOverlay());
