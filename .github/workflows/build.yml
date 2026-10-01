@@ -51,8 +51,8 @@ jobs:
           test -d src/main/resources/assets/kaleidoscope_tavern/items
           test -f src/main/resources/assets/kaleidoscope_tavern/sounds.json
           test -d src/main/resources/assets/kaleidoscope_tavern/sounds
-          test -f src/main/resources/assets/kaleidoscope_tavern/blockstates/sandwich_board.json
-          test -f src/main/resources/assets/kaleidoscope_tavern/models/block/sandwich_board.json
+          test -f src/main/resources/assets/kaleidoscope_tavern/blockstates/base_sandwich_board.json
+          test -f src/main/resources/assets/kaleidoscope_tavern/blockstates/poppy_sandwich_board.json
           grep -q 'registrar.playToClient(DrinkEffectSyncS2CMessage.TYPE' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java
           grep -q 'registrar.playToServer(ClearShakerC2SMessage.TYPE' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java
           test "$(find src/main/resources/data/kaleidoscope_tavern -type f | wc -l)" -gt 0
