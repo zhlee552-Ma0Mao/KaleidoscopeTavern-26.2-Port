@@ -23,6 +23,13 @@ for name in ["pack.mcmeta"]:
     if src.exists():
         shutil.copy2(src, work / "src/main/resources" / name)
 
+# Official 1.2 also stores generated blockstates/models/data in src/generated/resources.
+# These are required for blocks such as sandwich boards; omitting them produces
+# the black/magenta missing-model cube even when textures themselves are present.
+generated = feature / "src/generated/resources"
+if generated.exists():
+    shutil.copytree(generated, work / "src/main/resources", dirs_exist_ok=True)
+
 # Overlay the Refabricated 26.2 resource conversion last. The original 1.2 assets
 # use pre-26.2 item/model resource layouts; the 26.2 reference keeps the same
 # Tavern artwork/content while supplying Minecraft 26.2-compatible JSON paths.
