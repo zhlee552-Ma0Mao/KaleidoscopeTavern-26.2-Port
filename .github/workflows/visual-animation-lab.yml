@@ -144,6 +144,64 @@ jobs:
           echo "CLIENT_BOOT_PASS=NO" | tee -a lab/client-checks.txt
           exit 1
 
+      - name: Control test - clean NeoForge client under same virtual GPU
+        id: baseline_client
+        continue-on-error: true
+        run: |
+          set +e
+          rm -rf lab/baseline-mdk
+          git clone --depth 1 https://github.com/NeoForgeMDKs/MDK-26.2-ModDevGradle.git lab/baseline-mdk
+          cd lab/baseline-mdk
+          chmod +x gradlew
+          export LIBGL_ALWAYS_SOFTWARE=1
+          timeout 300s xvfb-run -a -s "-screen 0 1280x720x24"             ./gradlew --no-daemon runClient > ../baseline-client-console.log 2>&1
+          RC=$?
+          cd ../..
+          echo "baseline runClient exit=$RC" | tee lab/baseline-client-exit.txt
+          cp lab/baseline-mdk/run/logs/latest.log lab/baseline-client-latest.log 2>/dev/null || true
+
+          BLOG="lab/baseline-client-latest.log"
+          [ -f "$BLOG" ] || BLOG="lab/baseline-client-console.log"
+
+          {
+            echo "=== BASELINE CONTROL CHECK ==="
+            if grep -q "Missing uniform Globals" "$BLOG"; then
+              echo "BASELINE_VIRTUAL_GPU_GLOBALS_CRASH=YES"
+            else
+              echo "BASELINE_VIRTUAL_GPU_GLOBALS_CRASH=NO"
+            fi
+            if grep -q "Using graphics device: llvmpipe" "$BLOG"; then
+              echo "BASELINE_USES_LLVMPIPE=YES"
+            else
+              echo "BASELINE_USES_LLVMPIPE=NO"
+            fi
+          } | tee lab/baseline-client-checks.txt
+
+          exit 0
+
+      - name: Classify client experiment
+        run: |
+          set -euxo pipefail
+          LOG="lab/client-latest.log"
+          BLOG="lab/baseline-client-latest.log"
+
+          {
+            echo "=== VISUAL STACK CLASSIFICATION ==="
+            grep -qi "mod/animateditems" "$LOG" && echo "ANIMATED_ITEMS_LOADED=YES" || echo "ANIMATED_ITEMS_LOADED=NO"
+            grep -qi "mod/geckolib" "$LOG" && echo "GECKOLIB_LOADED=YES" || echo "GECKOLIB_LOADED=NO"
+            grep -qi "mod/entity_model_features" "$LOG" && echo "EMF_LOADED=YES" || echo "EMF_LOADED=NO"
+            grep -qi "mod/entity_texture_features" "$LOG" && echo "ETF_LOADED=YES" || echo "ETF_LOADED=NO"
+            grep -qi "file/FreshAnimations_v1.10.5.zip" "$LOG" && echo "FRESH_ANIMATIONS_LOADED=YES" || echo "FRESH_ANIMATIONS_LOADED=NO"
+            grep -qi "mod/sparkle_morpher" "$LOG" && echo "SPARKLE_MORPHER_LOADED=YES" || echo "SPARKLE_MORPHER_LOADED=NO"
+            if grep -q "Missing uniform Globals" "$LOG" && grep -q "Missing uniform Globals" "$BLOG"; then
+              echo "CI_GPU_CRASH_REPRODUCED_WITHOUT_MODS=YES"
+              echo "CLIENT_RESOURCE_LOAD_PASS=YES"
+            else
+              echo "CI_GPU_CRASH_REPRODUCED_WITHOUT_MODS=NO"
+              echo "CLIENT_RESOURCE_LOAD_PASS=NO"
+            fi
+          } | tee lab/client-classification.txt
+
       - name: Build clean dedicated test server
         run: |
           set -euxo pipefail
@@ -300,6 +358,10 @@ jobs:
             lab/client-checks.txt
             lab/client-latest.log
             lab/client-console.log
+            lab/client-classification.txt
+            lab/baseline-client-checks.txt
+            lab/baseline-client-latest.log
+            lab/baseline-client-console.log
             lab/static-inspection.txt
             lab/server/server-smoke.log
           if-no-files-found: warn
@@ -308,5 +370,10 @@ jobs:
         if: always()
         run: |
           set -euxo pipefail
-          grep -q "CLIENT_BOOT_PASS=YES" lab/client-checks.txt
+          grep -q "CLIENT_RESOURCE_LOAD_PASS=YES" lab/client-classification.txt
+          grep -q "ANIMATED_ITEMS_LOADED=YES" lab/client-classification.txt
+          grep -q "EMF_LOADED=YES" lab/client-classification.txt
+          grep -q "ETF_LOADED=YES" lab/client-classification.txt
+          grep -q "FRESH_ANIMATIONS_LOADED=YES" lab/client-classification.txt
+          grep -q "SPARKLE_MORPHER_LOADED=YES" lab/client-classification.txt
           grep -q "Done (" lab/server/server-smoke.log
