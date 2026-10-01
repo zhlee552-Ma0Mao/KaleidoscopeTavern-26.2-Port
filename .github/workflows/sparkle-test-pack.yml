@@ -1,0 +1,171 @@
+name: Sparkle Morpher 26.2 Test Pack
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - sparkle-morpher-test
+    paths:
+      - '.github/workflows/sparkle-test-pack.yml'
+
+jobs:
+  build-test-pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Prepare folders
+        run: |
+          set -euxo pipefail
+          rm -rf pack
+          mkdir -p pack/CLIENT_MODS pack/SERVER_TEST/mods pack/SERVER_TEST/logs
+
+      - name: Download official Sparkle Morpher 1.2.9 NeoForge 26.2
+        run: |
+          set -euxo pipefail
+          URL="https://github.com/sdf123098/Sparkle-Morpher/releases/download/v1.2.9/sparkle-morpher-1.2.9-neo26.2.jar"
+          curl -fL --retry 4 --retry-delay 2 "$URL" -o sparkle-morpher-1.2.9-neo26.2.jar
+          echo "44aaf54eeb5612639efa380cb0f29934d5e27c16cc8db361cebf668bf8528d1b  sparkle-morpher-1.2.9-neo26.2.jar" | sha256sum -c -
+          cp sparkle-morpher-1.2.9-neo26.2.jar pack/CLIENT_MODS/
+          cp sparkle-morpher-1.2.9-neo26.2.jar pack/SERVER_TEST/mods/
+
+      - name: Install NeoForge 26.2.0.88 server
+        run: |
+          set -euxo pipefail
+          URL="https://maven.neoforged.net/releases/net/neoforged/neoforge/26.2.0.88/neoforge-26.2.0.88-installer.jar"
+          curl -fL --retry 4 --retry-delay 2 "$URL" -o neoforge-installer.jar
+          cd pack/SERVER_TEST
+          java -jar ../../neoforge-installer.jar --installServer
+          rm -f neoforge-26.2.0.88-installer.jar neoforge-26.2.0.88-installer.jar.log
+          printf '%s\n' '-Xms1G' '-Xmx3G' > user_jvm_args.txt
+
+      - name: Add ready-to-click START and test config
+        run: |
+          cat > pack/SERVER_TEST/START.bat <<'BAT'
+          @echo off
+          title Sparkle Morpher MC26.2 Test Server
+          cd /d "%~dp0"
+          echo ==============================================
+          echo Sparkle Morpher 1.2.9 - MC 26.2 Test Server
+          echo NeoForge 26.2.0.88
+          echo ==============================================
+          echo.
+          where java >nul 2>nul
+          if errorlevel 1 (
+            echo [ERROR] Java 25 was not found in PATH.
+            echo Install Java 25, then run START.bat again.
+            pause
+            exit /b 1
+          )
+          if not exist eula.txt (
+            echo First launch only:
+            echo You must accept the Minecraft EULA yourself.
+            echo https://aka.ms/MinecraftEULA
+            echo.
+            set /p AGREE=Type YES to accept and continue: 
+            if /I not "%AGREE%"=="YES" (
+              echo EULA not accepted. Server was not started.
+              pause
+              exit /b 1
+            )
+            echo eula=true>eula.txt
+          )
+          call run.bat nogui
+          echo.
+          echo Server stopped.
+          pause
+          BAT
+
+          cat > pack/SERVER_TEST/server.properties <<'PROPS'
+          server-port=25566
+          online-mode=true
+          gamemode=creative
+          difficulty=peaceful
+          spawn-protection=0
+          allow-flight=true
+          max-players=5
+          motd=Sparkle Morpher 26.2 Test Server
+          level-name=sparkle_test_world
+          enable-command-block=false
+          view-distance=8
+          simulation-distance=6
+          PROPS
+
+          cat > pack/README_测试步骤.txt <<'TXT'
+          Sparkle's Morpher 1.2.9 / Minecraft 26.2 / NeoForge 26.2.0.88 测试包
+
+          1) 玩家客户端
+          - 删除/移走旧 YSM：ysm-2.6.5-neoforge+mc26.1-hotfix.jar
+          - 删除/移走 ysm_26_2_compat 测试桥
+          - 把 CLIENT_MODS\sparkle-morpher-1.2.9-neo26.2.jar 放进玩家客户端 mods
+          - 客户端必须是 Minecraft 26.2 + NeoForge 26.2.0.88
+
+          2) 测试服务器
+          - 打开 SERVER_TEST
+          - 双击 START.bat
+          - 第一次会要求你输入 YES，自行同意 Minecraft EULA
+          - 看到 Done 后，客户端加入：localhost:25566
+          - 如果朋友从另一台电脑测试，请用这台测试服务器电脑的 IP:25566
+
+          3) 测试顺序
+          A. 客户端是否正常进入主菜单
+          B. 是否能打开 Sparkle Morpher 模型界面
+          C. 导入/读取 YSM 模型
+          D. F5 第三人称显示
+          E. 第一人称手臂
+          F. 动画/动作轮
+          G. 两名玩家互相看到模型
+          H. 退出服务器再加入
+          I. 完全关掉客户端再重新加入
+
+          4) 如果出错
+          - 发 CLIENT 的 latest.log
+          - 如果服务器出错，也发 SERVER_TEST\logs\latest.log
+
+          说明
+          - 测试服务器端口使用 25566，避免和你正式服务器 25565 冲突。
+          - 此包使用官方 Sparkle Morpher GitHub v1.2.9 release 原版 JAR，不修改、不重打包。
+          - SHA256: 44aaf54eeb5612639efa380cb0f29934d5e27c16cc8db361cebf668bf8528d1b
+          TXT
+
+          cat > pack/SHA256.txt <<'TXT'
+          44aaf54eeb5612639efa380cb0f29934d5e27c16cc8db361cebf668bf8528d1b  sparkle-morpher-1.2.9-neo26.2.jar
+          TXT
+
+      - name: Smoke test dedicated server
+        run: |
+          set -euxo pipefail
+          cd pack/SERVER_TEST
+          echo eula=true > eula.txt
+          timeout 120s bash -c './run.sh nogui > ci-server.log 2>&1 & pid=$!; for i in $(seq 1 100); do if grep -q "Done (" ci-server.log; then kill $pid || true; wait $pid || true; exit 0; fi; if ! kill -0 $pid 2>/dev/null; then cat ci-server.log; exit 1; fi; sleep 1; done; cat ci-server.log; kill $pid || true; exit 1'
+          grep -q "Done (" ci-server.log
+          rm -f eula.txt
+          rm -rf sparkle_test_world
+          cp ci-server.log ../SERVER_SMOKE_TEST.log
+
+      - name: Package
+        run: |
+          set -euxo pipefail
+          rm -f pack/SERVER_TEST/ci-server.log
+          cd pack
+          zip -r ../Sparkle_Morpher_1.2.9_MC26.2_TEST_READY.zip .
+          cd ..
+          sha256sum Sparkle_Morpher_1.2.9_MC26.2_TEST_READY.zip > PACK_SHA256.txt
+
+      - name: Upload test pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sparkle_Morpher_1.2.9_MC26.2_TEST_READY
+          path: |
+            Sparkle_Morpher_1.2.9_MC26.2_TEST_READY.zip
+            PACK_SHA256.txt
+          if-no-files-found: error
