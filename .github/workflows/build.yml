@@ -2,6 +2,8 @@ name: Tavern 26.2 Port CI
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
