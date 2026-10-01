@@ -44,7 +44,6 @@ for token in [
 # Common/server first. This reproduces the already-proven Stage 6 scaffold.
 s += """
 tasks.named('compileJava', JavaCompile).configure {
-    exclude '**/client/**'
     exclude '**/compat/**'
     exclude '**/datagen/**'
     options.compilerArgs += ['-Xmaxerrs', '500']
