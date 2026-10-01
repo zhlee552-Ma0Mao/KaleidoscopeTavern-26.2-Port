@@ -259,6 +259,43 @@ if p.exists():
         t = t[:pos] + "\n    public static BottleBlock simpleBottle(net.minecraft.world.level.block.state.BlockBehaviour.Properties properties) {\n        return new BottleBlock(properties, false);\n    }\n" + t[pos:]
     p.write_text(t, encoding="utf-8")
 
+# Final focused 1.2 compatibility batch.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/config/GeneralConfig.java"
+src = feature / "src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/config/GeneralConfig.java"
+if p.exists() and src.exists():
+    p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/block/brew/PotionBottleBlock.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    t = t.replace("super(properties, BottleBlock.SIMPLE_BOTTLE_SHAPE);", "super(properties, false);")
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/blockentity/mixology/ShakerBlockEntity.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    old = "net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(storage, copy, false);"
+    new = """for (int slot = 0; slot < storage.getSlots() && !copy.isEmpty(); slot++) {
+            copy = storage.insertItem(slot, copy, false);
+        }"""
+    t = t.replace(old, new)
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/blockentity/deco/IncenseBlockEntity.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    old = "zombieVillager.startConverting(null, 60);"
+    new = """try {
+                    var method = net.minecraft.world.entity.monster.ZombieVillager.class
+                            .getDeclaredMethod("startConverting", java.util.UUID.class, int.class);
+                    method.setAccessible(true);
+                    method.invoke(zombieVillager, null, 60);
+                } catch (ReflectiveOperationException exception) {
+                    throw new IllegalStateException("Unable to start zombie villager conversion", exception);
+                }"""
+    t = t.replace(old, new)
+    p.write_text(t, encoding="utf-8")
+
 # Do not globally rewrite registry references: some references are already concrete
 # values or appear in declarations. Targeted copied classes above are adapted separately.
 
