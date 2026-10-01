@@ -69,6 +69,9 @@ for relstr in [
     "com/github/ysbbbbbb/kaleidoscopetavern/datamap/data/DrinkEffectData.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/datamap/resources/DrinkEffectDataReloadListener.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/util/CocktailEffectHelper.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/item/ShakerItem.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/crafting/recipe/ShakerRecipe.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/block/brew/PotionBottleBlock.java",
 ]:
     src = rj / relstr
     if src.exists():
