@@ -1,0 +1,398 @@
+name: Current Modpack Integration Lab
+
+on:
+  push:
+    branches:
+      - mod-integration-lab
+    paths:
+      - '.github/workflows/current-modpack-integration.yml'
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Prepare
+        run: |
+          set -euxo pipefail
+          mkdir -p lab/mods lab/resourcepacks lab/server/mods out
+
+      - name: Build Kaleidoscope Cookery 26.2 from source
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --branch 26.2 https://github.com/BuaichiZY/KaleidoscopeCookery-26_Neo.git lab/cookery-src
+          cd lab/cookery-src
+          chmod +x gradlew
+          ./gradlew --no-daemon build
+          find build/libs -type f -name '*.jar' -not -name '*sources*' -not -name '*javadoc*' -print
+          cp "$(find build/libs -type f -name '*.jar' -not -name '*sources*' -not -name '*javadoc*' | head -1)" ../mods/kaleidoscope_cookery_26.2_1.5.1.jar
+          cd ../..
+
+      - name: Download currently approved mods from official sources
+        run: |
+          set -euxo pipefail
+
+          # Farmer's Delight 26.2 fix2, CurseForge file 8997022
+          curl -fL --retry 4 --retry-delay 2             "https://edge.forgecdn.net/files/8997/022/FarmersDelight-26.2-fix2-neoforge.jar"             -o lab/mods/FarmersDelight-26.2-fix2-neoforge.jar
+
+          # Sparkle Morpher 1.2.9
+          curl -fL --retry 4 --retry-delay 2             "https://github.com/sdf123098/Sparkle-Morpher/releases/download/v1.2.9/sparkle-morpher-1.2.9-neo26.2.jar"             -o lab/mods/sparkle-morpher-1.2.9-neo26.2.jar
+          echo "44aaf54eeb5612639efa380cb0f29934d5e27c16cc8db361cebf668bf8528d1b  lab/mods/sparkle-morpher-1.2.9-neo26.2.jar" | sha256sum -c -
+
+          # Japanese Residence 26.2, CurseForge file 8781973
+          curl -fL --retry 4 --retry-delay 2             "https://edge.forgecdn.net/files/8781/973/japanese_residence-1.0.0%20Neoforge%2026.2.jar"             -o "lab/mods/japanese_residence-1.0.0 Neoforge 26.2.jar"
+
+          # qrafty's Japanese Villages 4.1, Modrinth version FIDi8t7x
+          python3 - <<'PY'
+          import json, urllib.request, os
+          vid="FIDi8t7x"
+          with urllib.request.urlopen("https://api.modrinth.com/v2/version/"+vid) as r:
+              d=json.load(r)
+          f=next((x for x in d["files"] if x.get("primary")), d["files"][0])
+          urllib.request.urlretrieve(f["url"], os.path.join("lab/mods", f["filename"]))
+          print(f["filename"])
+          PY
+
+          # Client visual-only stack
+          curl -fL --retry 4 --retry-delay 2             "https://edge.forgecdn.net/files/8969/269/animateditems-neoforge-26.2-1.1.0.jar"             -o lab/mods/animateditems-neoforge-26.2-1.1.0.jar
+          curl -fL --retry 4 --retry-delay 2             "https://edge.forgecdn.net/files/8891/706/geckolib-neoforge-26.2-5.5.6.jar"             -o lab/mods/geckolib-neoforge-26.2-5.5.6.jar
+
+          python3 - <<'PY'
+          import json, urllib.request, os
+          for vid,target in [
+              ("pAGUBfhR","lab/mods"),
+              ("uPdeEy2P","lab/mods"),
+              ("RGIzA5em","lab/resourcepacks"),
+          ]:
+              with urllib.request.urlopen("https://api.modrinth.com/v2/version/"+vid) as r:
+                  d=json.load(r)
+              f=next((x for x in d["files"] if x.get("primary")),d["files"][0])
+              urllib.request.urlretrieve(f["url"],os.path.join(target,f["filename"]))
+              print(f["filename"])
+          PY
+
+          echo "=== MODS ==="
+          ls -lh lab/mods
+          echo "=== RESOURCE PACKS ==="
+          ls -lh lab/resourcepacks
+          sha256sum lab/mods/*.jar lab/resourcepacks/*.zip | tee lab/SHA256SUMS.txt
+
+      - name: Static metadata inspection
+        run: |
+          set -euxo pipefail
+          {
+            for f in lab/mods/*.jar; do
+              echo "===== $(basename "$f") ====="
+              unzip -p "$f" META-INF/neoforge.mods.toml 2>/dev/null | head -180 || true
+              echo
+            done
+          } | tee lab/mod-metadata.txt
+
+      - name: Install clean NeoForge server
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 4 --retry-delay 2             "https://maven.neoforged.net/releases/net/neoforged/neoforge/26.2.0.88/neoforge-26.2.0.88-installer.jar"             -o lab/neoforge-installer.jar
+          cd lab/server
+          java -jar ../neoforge-installer.jar --installServer
+          echo "eula=true" > eula.txt
+          cat > server.properties <<EOF
+          server-port=25566
+          online-mode=false
+          enforce-secure-profile=false
+          gamemode=creative
+          difficulty=normal
+          level-name=current_modpack_lab
+          max-players=5
+          view-distance=8
+          simulation-distance=6
+          motd=Current Modpack Lab 26.2
+          EOF
+          printf '%s\n' '-Xms1G' '-Xmx4G' > user_jvm_args.txt
+          cd ../..
+
+          # Server-side set only. Animated Items/EMF/ETF/Fresh are client-side.
+          cp lab/mods/FarmersDelight-26.2-fix2-neoforge.jar lab/server/mods/
+          cp lab/mods/kaleidoscope_cookery_26.2_1.5.1.jar lab/server/mods/
+          cp lab/mods/sparkle-morpher-1.2.9-neo26.2.jar lab/server/mods/
+          cp "lab/mods/japanese_residence-1.0.0 Neoforge 26.2.jar" lab/server/mods/
+          cp "$(find lab/mods -maxdepth 1 -type f -name 'qraftys-japanese-villages-4.1.jar' | head -1)" lab/server/mods/
+
+      - name: Server first boot
+        run: |
+          set -euxo pipefail
+          cd lab/server
+          ./run.sh nogui > server-first.log 2>&1 &
+          PID=$!
+          PASS=0
+          for i in $(seq 1 180); do
+            if grep -q "Done (" server-first.log; then PASS=1; break; fi
+            if ! kill -0 $PID 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$PASS" -ne 1 ]; then
+            cat server-first.log
+            kill $PID 2>/dev/null || true
+            exit 1
+          fi
+          kill $PID 2>/dev/null || true
+          wait $PID 2>/dev/null || true
+          grep -q "Done (" server-first.log
+          cp server-first.log ../server-first.log
+          cd ../..
+
+      - name: Same-world restart
+        run: |
+          set -euxo pipefail
+          cd lab/server
+          ./run.sh nogui > server-restart.log 2>&1 &
+          PID=$!
+          PASS=0
+          for i in $(seq 1 180); do
+            if grep -q "Done (" server-restart.log; then PASS=1; break; fi
+            if ! kill -0 $PID 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$PASS" -ne 1 ]; then
+            cat server-restart.log
+            kill $PID 2>/dev/null || true
+            exit 1
+          fi
+          kill $PID 2>/dev/null || true
+          wait $PID 2>/dev/null || true
+          cp server-restart.log ../server-restart.log
+          cd ../..
+          echo "PASS_SERVER_FIRST_BOOT_AND_SAME_WORLD_RESTART" | tee lab/integration-result.txt
+
+      - name: Build installer package without redistributing ARR binaries
+        run: |
+          set -euxo pipefail
+          mkdir -p out/Current_Modpack_26.2_Installer
+          cat > out/Current_Modpack_26.2_Installer/INSTALL_CURRENT_MODS.ps1 <<'PS1'
+          $ErrorActionPreference="Stop"
+          $Mc=Join-Path $env:APPDATA ".minecraft"
+          $Mods=Join-Path $Mc "mods"
+          $RP=Join-Path $Mc "resourcepacks"
+          New-Item -ItemType Directory -Force -Path $Mods,$RP | Out-Null
+
+          function GetFile($url,$out) {
+            Write-Host "Downloading $(Split-Path $out -Leaf)"
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $out
+          }
+
+          GetFile "https://edge.forgecdn.net/files/8997/022/FarmersDelight-26.2-fix2-neoforge.jar" (Join-Path $Mods "FarmersDelight-26.2-fix2-neoforge.jar")
+          GetFile "https://github.com/sdf123098/Sparkle-Morpher/releases/download/v1.2.9/sparkle-morpher-1.2.9-neo26.2.jar" (Join-Path $Mods "sparkle-morpher-1.2.9-neo26.2.jar")
+          GetFile "https://edge.forgecdn.net/files/8781/973/japanese_residence-1.0.0%20Neoforge%2026.2.jar" (Join-Path $Mods "japanese_residence-1.0.0 Neoforge 26.2.jar")
+          GetFile "https://edge.forgecdn.net/files/8969/269/animateditems-neoforge-26.2-1.1.0.jar" (Join-Path $Mods "animateditems-neoforge-26.2-1.1.0.jar")
+          GetFile "https://edge.forgecdn.net/files/8891/706/geckolib-neoforge-26.2-5.5.6.jar" (Join-Path $Mods "geckolib-neoforge-26.2-5.5.6.jar")
+
+          function GetModrinth($vid,$target) {
+            $d=Invoke-RestMethod -Uri ("https://api.modrinth.com/v2/version/"+$vid)
+            $f=$d.files | Where-Object {$_.primary -eq $true} | Select-Object -First 1
+            if($null -eq $f){$f=$d.files | Select-Object -First 1}
+            GetFile $f.url (Join-Path $target $f.filename)
+          }
+          GetModrinth "FIDi8t7x" $Mods
+          GetModrinth "pAGUBfhR" $Mods
+          GetModrinth "uPdeEy2P" $Mods
+          GetModrinth "RGIzA5em" $RP
+
+          Write-Host ""
+          Write-Host "Cookery is not downloaded by this installer because its custom asset license should be respected."
+          Write-Host "Keep your already-tested kaleidoscope_cookery_26.2_1.5.1.jar in mods."
+          Write-Host "DONE"
+          PS1
+
+          cat > out/Current_Modpack_26.2_Installer/INSTALL_CURRENT_MODS.bat <<'BAT'
+          @echo off
+          cd /d "%~dp0"
+          powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0INSTALL_CURRENT_MODS.ps1"
+          echo.
+          pause
+          BAT
+
+          cat > out/Current_Modpack_26.2_Installer/README_先看.txt <<'TXT'
+          当前加入/保留：
+          - Farmer's Delight 26.2 fix2
+          - Kaleidoscope Cookery 26.2 1.5.1（保留你已经测试过的 JAR）
+          - qrafty's Japanese Villages 4.1
+          - Japanese Residence 26.2
+          - Sparkle Morpher 1.2.9
+          - Animated Items 1.1.0
+          - GeckoLib 5.5.6
+          - EMF
+          - ETF
+          - Fresh Animations 1.10.5
+
+          不要：
+          - MB-3D Items
+          - Pinku GUI
+          - Pink Crits
+          - 旧 AstikorCarts
+
+          还在移植：
+          - Kaleidoscope Tavern 1.2.0
+          - Straw Golem
+          - AstikorCarts Redux
+
+          NiftyCarts 只作为 API/功能参考，不直接安装。
+          TXT
+
+          cd out
+          zip -r Current_Modpack_26.2_Installer.zip Current_Modpack_26.2_Installer
+
+      - name: Upload integration evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Current_Modpack_26.2_Integration
+          path: |
+            out/Current_Modpack_26.2_Installer.zip
+            lab/integration-result.txt
+            lab/server-first.log
+            lab/server-restart.log
+            lab/SHA256SUMS.txt
+            lab/mod-metadata.txt
+          if-no-files-found: error
+
+  strawgolem_probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Clone Straw Golem 1.21.8 NeoForge base
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --branch 1.21.8 https://github.com/HeroBrianMack/RE-Strawgolem.git strawgolem
+          cd strawgolem
+          chmod +x gradlew
+          ./gradlew --no-daemon :neoforge:build > ../baseline.log 2>&1
+          cd ..
+
+      - name: First mechanical 26.2 port probe
+        continue-on-error: true
+        run: |
+          set +e
+          cd strawgolem
+          cp gradle.properties ../gradle.properties.before
+          python3 - <<'PY'
+          p="gradle.properties"
+          s=open(p,encoding="utf-8").read()
+          repl={
+            "java_version=21":"java_version=25",
+            "minecraft_version=1.21.8":"minecraft_version=26.2",
+            "minecraft_version_range=[1.21, 1.22)":"minecraft_version_range=[26.2, 26.3)",
+            "neoforge_version=21.8.54":"neoforge_version=26.2.0.88",
+            "neo_form_version=1.21.8-20250717.133445":"neo_form_version=26.2-202609??",
+            "neo_moddev_version=2.0.142":"neo_moddev_version=2.0.147",
+            "geckolib_version=5.2.2":"geckolib_version=5.5.6",
+          }
+          for a,b in repl.items(): s=s.replace(a,b)
+          # ModDevGradle 26.2 supplies NeoForm; remove stale explicit neo form line value rather than guess.
+          s=s.replace("neo_form_version=26.2-202609??","neo_form_version=")
+          open(p,"w",encoding="utf-8").write(s)
+          PY
+          ./gradlew --no-daemon :neoforge:compileJava > ../port-compile.log 2>&1
+          RC=$?
+          echo "$RC" > ../straw-port-exit.txt
+          cd ..
+          exit 0
+
+      - name: Summarize probe
+        run: |
+          set -euxo pipefail
+          {
+            echo "=== STRAW GOLEM 26.2 FIRST PROBE ==="
+            echo "Baseline 1.21.8 NeoForge build: PASS"
+            echo "Port compile exit: $(cat straw-port-exit.txt)"
+            echo
+            grep -E "error:|FAILURE:|Could not|cannot find symbol|package .* does not exist" port-compile.log | head -200 || true
+          } | tee straw-summary.txt
+
+      - name: Upload Straw evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: StrawGolem_26.2_Port_Probe
+          path: |
+            straw-summary.txt
+            port-compile.log
+            baseline.log
+            gradle.properties.before
+            straw-port-exit.txt
+
+  carts_probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Clone AstikorCarts Redux 1.21.8 NeoForge base
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --branch 1.21.8-neo https://github.com/jusipat/astikor-carts-redux.git carts
+          cd carts
+          chmod +x gradlew
+          ./gradlew --no-daemon build > ../baseline.log 2>&1
+          cd ..
+
+      - name: First mechanical 26.2 port probe
+        continue-on-error: true
+        run: |
+          set +e
+          cd carts
+          cp gradle.properties ../gradle.properties.before
+          python3 - <<'PY'
+          p="gradle.properties"
+          s=open(p,encoding="utf-8").read()
+          s=s.replace("parchment_minecraft_version=1.21.8","parchment_minecraft_version=1.21.8")
+          s=s.replace("minecraft_version=1.21.8","minecraft_version=26.2")
+          s=s.replace("minecraft_version_range=[1.21.8]","minecraft_version_range=[26.2]")
+          s=s.replace("neo_version=21.8.35","neo_version=26.2.0.88")
+          open(p,"w",encoding="utf-8").write(s)
+          PY
+          sed -i "s/version '2.0.107'/version '2.0.147'/" build.gradle
+          sed -i "s/JavaLanguageVersion.of(21)/JavaLanguageVersion.of(25)/" build.gradle
+          ./gradlew --no-daemon compileJava > ../port-compile.log 2>&1
+          RC=$?
+          echo "$RC" > ../carts-port-exit.txt
+          cd ..
+          exit 0
+
+      - name: Summarize probe
+        run: |
+          set -euxo pipefail
+          {
+            echo "=== ASTIKORCARTS REDUX 26.2 FIRST PROBE ==="
+            echo "Baseline 1.21.8 NeoForge build: PASS"
+            echo "Port compile exit: $(cat carts-port-exit.txt)"
+            echo
+            grep -E "error:|FAILURE:|Could not|cannot find symbol|package .* does not exist" port-compile.log | head -240 || true
+          } | tee carts-summary.txt
+
+      - name: Upload Carts evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: AstikorCartsRedux_26.2_Port_Probe
+          path: |
+            carts-summary.txt
+            port-compile.log
+            baseline.log
+            gradle.properties.before
+            carts-port-exit.txt
