@@ -126,6 +126,7 @@ if p.exists():
     t = t.replace("import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;\n", "")
     t = t.replace("@Environment(EnvType.CLIENT)\n", "")
     t = t.replace("implements HudElement", "implements net.neoforged.neoforge.client.gui.GuiLayer")
+    t = t.replace("public void extractRenderState(@NonNull GuiGraphicsExtractor guiGraphics, @NonNull DeltaTracker deltaTracker)", "public void render(@NonNull GuiGraphicsExtractor guiGraphics, @NonNull DeltaTracker deltaTracker)")
     t = re.sub(r"\n    public static void register\(\) \{[\s\S]*?\n    \}\n", "\n", t, count=1)
     for reg in ["ModBlocks","ModItems"]:
         pat = re.compile(r"\b" + reg + r"\.([A-Z][A-Z0-9_]*)\b(?!\.get\(\))")
