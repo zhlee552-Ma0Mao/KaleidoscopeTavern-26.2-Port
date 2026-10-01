@@ -1,0 +1,312 @@
+name: Visual Animation Lab 26.2
+
+on:
+  push:
+    branches:
+      - visual-animation-lab
+    paths:
+      - '.github/workflows/visual-animation-lab.yml'
+  workflow_dispatch:
+
+jobs:
+  experiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout lab
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Prepare experiment folders
+        run: |
+          set -euxo pipefail
+          rm -rf lab out
+          mkdir -p lab/downloads lab/client/mods lab/client/resourcepacks out
+
+      - name: Download exact 26.2 visual stack
+        run: |
+          set -euxo pipefail
+
+          # Sparkle Morpher 1.2.9 - already player-tested, included to verify coexistence.
+          curl -fL --retry 4 --retry-delay 2             "https://github.com/sdf123098/Sparkle-Morpher/releases/download/v1.2.9/sparkle-morpher-1.2.9-neo26.2.jar"             -o lab/client/mods/sparkle-morpher-1.2.9-neo26.2.jar
+          echo "44aaf54eeb5612639efa380cb0f29934d5e27c16cc8db361cebf668bf8528d1b  lab/client/mods/sparkle-morpher-1.2.9-neo26.2.jar" | sha256sum -c -
+
+          # Animated Items 1.1.0 - official CurseForge file 8969269.
+          curl -fL --retry 4 --retry-delay 2             "https://edge.forgecdn.net/files/8969/269/animateditems-neoforge-26.2-1.1.0.jar"             -o lab/client/mods/animateditems-neoforge-26.2-1.1.0.jar
+
+          # GeckoLib 5.5.6 - official CurseForge file 8891706.
+          curl -fL --retry 4 --retry-delay 2             "https://edge.forgecdn.net/files/8891/706/geckolib-neoforge-26.2-5.5.6.jar"             -o lab/client/mods/geckolib-neoforge-26.2-5.5.6.jar
+
+          # Resolve Modrinth version IDs to their official primary files.
+          download_modrinth_version () {
+            VERSION_ID="$1"
+            TARGET_DIR="$2"
+            META="$(curl -fsSL --retry 4 "https://api.modrinth.com/v2/version/$VERSION_ID")"
+            URL="$(printf '%s' "$META" | python3 -c 'import sys,json; d=json.load(sys.stdin); fs=d["files"]; f=next((x for x in fs if x.get("primary")),fs[0]); print(f["url"])')"
+            NAME="$(printf '%s' "$META" | python3 -c 'import sys,json; d=json.load(sys.stdin); fs=d["files"]; f=next((x for x in fs if x.get("primary")),fs[0]); print(f["filename"])')"
+            curl -fL --retry 4 --retry-delay 2 "$URL" -o "$TARGET_DIR/$NAME"
+            echo "$NAME"
+          }
+
+          # EMF 3.3.7 NeoForge 26.2.
+          download_modrinth_version "pAGUBfhR" "lab/client/mods" | tee lab/emf-name.txt
+          # ETF 7.2.4 NeoForge 26.2.
+          download_modrinth_version "uPdeEy2P" "lab/client/mods" | tee lab/etf-name.txt
+          # Fresh Animations 1.10.5 resource pack.
+          download_modrinth_version "RGIzA5em" "lab/client/resourcepacks" | tee lab/fresh-name.txt
+
+          find lab/client -type f -maxdepth 3 -print
+          sha256sum lab/client/mods/*.jar lab/client/resourcepacks/*.zip | tee lab/SHA256SUMS.txt
+
+      - name: Static inspect JAR metadata
+        run: |
+          set -euxo pipefail
+          {
+            echo "=== FILES ==="
+            ls -lh lab/client/mods
+            echo
+            for f in lab/client/mods/*.jar; do
+              echo "===== $(basename "$f") ====="
+              unzip -l "$f" | grep -E 'META-INF/(neoforge.mods.toml|mods.toml)|fabric.mod.json|META-INF/jarjar' | head -30 || true
+              unzip -p "$f" META-INF/neoforge.mods.toml 2>/dev/null | head -160 || true
+              echo
+            done
+          } | tee lab/static-inspection.txt
+
+      - name: Clone official NeoForge 26.2 MDK for real client smoke
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 https://github.com/NeoForgeMDKs/MDK-26.2-ModDevGradle.git lab/client-mdk
+          mkdir -p lab/client-mdk/run/mods lab/client-mdk/run/resourcepacks
+          cp lab/client/mods/*.jar lab/client-mdk/run/mods/
+          cp lab/client/resourcepacks/*.zip lab/client-mdk/run/resourcepacks/
+
+          FRESH="$(basename "$(find lab/client/resourcepacks -type f -name '*.zip' | head -1)")"
+          cat > lab/client-mdk/run/options.txt <<EOF
+          resourcePacks:["vanilla","mod_resources","file/$FRESH"]
+          incompatibleResourcePacks:[]
+          pauseOnLostFocus:false
+          fullscreen:false
+          overrideWidth:960
+          overrideHeight:540
+          EOF
+
+      - name: Install Xvfb if needed
+        run: |
+          set -euxo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+
+      - name: Real NeoForge client boot smoke
+        id: client
+        continue-on-error: true
+        run: |
+          set +e
+          cd lab/client-mdk
+          chmod +x gradlew
+          export LIBGL_ALWAYS_SOFTWARE=1
+          timeout 420s xvfb-run -a -s "-screen 0 1280x720x24"             ./gradlew --no-daemon runClient > ../client-console.log 2>&1
+          RC=$?
+          cd ../..
+          echo "runClient exit=$RC" | tee lab/client-exit.txt
+          cp lab/client-mdk/run/logs/latest.log lab/client-latest.log 2>/dev/null || true
+
+          LOG="lab/client-latest.log"
+          [ -f "$LOG" ] || LOG="lab/client-console.log"
+
+          echo "=== CLIENT CHECKS ===" | tee lab/client-checks.txt
+          for pat in             "sparkle-morpher-1.2.9-neo26.2.jar"             "animateditems-neoforge-26.2-1.1.0.jar"             "geckolib-neoforge-26.2-5.5.6.jar"             "entity_model_features"             "entity_texture_features"             "FreshAnimations"             "Sound engine started"; do
+              if grep -qi "$pat" "$LOG"; then
+                echo "PASS: $pat" | tee -a lab/client-checks.txt
+              else
+                echo "MISS: $pat" | tee -a lab/client-checks.txt
+              fi
+          done
+
+          if grep -Eqi "Crash report saved|Failed to complete lifecycle event|ModLoadingException|MixinApplyError|NoClassDefFoundError|ExceptionInInitializerError" "$LOG"; then
+            echo "CLIENT_FATAL_PATTERN=YES" | tee -a lab/client-checks.txt
+            exit 1
+          fi
+
+          if grep -q "Sound engine started" "$LOG"              && grep -qi "animateditems-neoforge-26.2-1.1.0.jar" "$LOG"              && grep -qi "sparkle-morpher-1.2.9-neo26.2.jar" "$LOG"; then
+            echo "CLIENT_BOOT_PASS=YES" | tee -a lab/client-checks.txt
+            exit 0
+          fi
+
+          echo "CLIENT_BOOT_PASS=NO" | tee -a lab/client-checks.txt
+          exit 1
+
+      - name: Build clean dedicated test server
+        run: |
+          set -euxo pipefail
+          mkdir -p lab/server/mods
+          cp lab/client/mods/sparkle-morpher-1.2.9-neo26.2.jar lab/server/mods/
+
+          curl -fL --retry 4 --retry-delay 2             "https://maven.neoforged.net/releases/net/neoforged/neoforge/26.2.0.88/neoforge-26.2.0.88-installer.jar"             -o lab/neoforge-installer.jar
+          cd lab/server
+          java -jar ../neoforge-installer.jar --installServer
+          echo "eula=true" > eula.txt
+          cat > server.properties <<EOF
+          server-port=25566
+          online-mode=false
+          enforce-secure-profile=false
+          gamemode=creative
+          difficulty=peaceful
+          level-name=visual_animation_lab
+          max-players=5
+          view-distance=8
+          simulation-distance=6
+          motd=Visual Animation Lab 26.2
+          EOF
+          printf '%s\n' '-Xms1G' '-Xmx3G' > user_jvm_args.txt
+          cd ../..
+
+      - name: Dedicated server smoke with correct server-side set
+        id: server
+        run: |
+          set -euxo pipefail
+          cd lab/server
+          ./run.sh nogui > server-smoke.log 2>&1 &
+          PID=$!
+          PASS=0
+          for i in $(seq 1 120); do
+            if grep -q "Done (" server-smoke.log; then
+              PASS=1
+              break
+            fi
+            if ! kill -0 $PID 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          if [ "$PASS" -ne 1 ]; then
+            cat server-smoke.log
+            kill $PID 2>/dev/null || true
+            exit 1
+          fi
+          kill $PID 2>/dev/null || true
+          wait $PID 2>/dev/null || true
+          grep -q "Sparkle's Morpher 1.2.9" server-smoke.log
+          echo "SERVER_BOOT_PASS=YES"
+          cd ../..
+
+      - name: Create ready-to-test Windows package
+        if: always()
+        run: |
+          set -euxo pipefail
+          mkdir -p out/Visual_Animation_Lab_MC26.2/CLIENT_MODS
+          mkdir -p out/Visual_Animation_Lab_MC26.2/CLIENT_RESOURCEPACKS
+          mkdir -p out/Visual_Animation_Lab_MC26.2/SERVER_TEST
+
+          cp lab/client/mods/*.jar out/Visual_Animation_Lab_MC26.2/CLIENT_MODS/
+          cp lab/client/resourcepacks/*.zip out/Visual_Animation_Lab_MC26.2/CLIENT_RESOURCEPACKS/
+          cp -a lab/server/. out/Visual_Animation_Lab_MC26.2/SERVER_TEST/
+          rm -f out/Visual_Animation_Lab_MC26.2/SERVER_TEST/eula.txt
+          rm -rf out/Visual_Animation_Lab_MC26.2/SERVER_TEST/visual_animation_lab
+          rm -f out/Visual_Animation_Lab_MC26.2/SERVER_TEST/server-smoke.log
+
+          cat > out/Visual_Animation_Lab_MC26.2/SERVER_TEST/START.bat <<'BAT'
+          @echo off
+          setlocal EnableExtensions EnableDelayedExpansion
+          title Visual Animation Lab - MC26.2
+          cd /d "%~dp0"
+          echo ==============================================
+          echo Visual Animation Lab - MC 26.2
+          echo NeoForge 26.2.0.88 + Sparkle Morpher 1.2.9
+          echo ==============================================
+          echo.
+          where java >nul 2>nul
+          if errorlevel 1 (
+            echo [ERROR] Java 25 was not found.
+            pause
+            exit /b 1
+          )
+          set "EULA_OK=0"
+          if exist "eula.txt" (
+            findstr /I /X /C:"eula=true" "eula.txt" >nul 2>nul
+            if not errorlevel 1 set "EULA_OK=1"
+          )
+          if "!EULA_OK!"=="0" (
+            echo First launch only. Read: https://aka.ms/MinecraftEULA
+            set /p "AGREE=Type YES to accept and continue: "
+            if /I not "!AGREE!"=="YES" exit /b 1
+            >"eula.txt" echo eula=true
+          )
+          call run.bat nogui
+          pause
+          BAT
+
+          cat > out/Visual_Animation_Lab_MC26.2/README_实验步骤.txt <<'TXT'
+          Visual Animation Lab / Minecraft 26.2 / NeoForge 26.2.0.88
+
+          这次实验只保留我们已经定下的方向：
+          - Sparkle Morpher 1.2.9
+          - Animated Items 1.1.0
+          - GeckoLib 5.5.6
+          - EMF
+          - ETF
+          - Fresh Animations 1.10.5
+
+          没有：
+          - MB-3D Items
+          - Pinku GUI
+          - Pink Crits
+
+          CLIENT_MODS 里的 JAR 全部放玩家端 mods。
+          CLIENT_RESOURCEPACKS 里的 Fresh Animations 放玩家端 resourcepacks 并启用。
+
+          SERVER_TEST 服务器只放 Sparkle Morpher。
+          Animated Items / EMF / ETF / Fresh Animations 不需要放服务器。
+
+          测试顺序：
+          1. 启动客户端，确认正常进主菜单。
+          2. 进 SERVER_TEST（localhost:25566）。
+          3. 看牛、羊、猪、鸡、狐狸、美西螈是否有 Fresh Animations 动作。
+          4. 第一次启动 Animated Items 后，检查它是否生成示例资源包。
+          5. 按 Animated Items 文档加载示例/测试模型，验证第一人称 3D 手持动画。
+          6. Sparkle Morpher 模型继续测试 F5 / 第一人称 / 重进。
+
+          重点：
+          Animated Items 是“动画引擎”，不会自动让原版鱼桶/美西螈桶变成 3D 会动。
+          后续我们会给指定物品制作专用 Animated Items 模型包。
+          TXT
+
+          cp lab/SHA256SUMS.txt out/Visual_Animation_Lab_MC26.2/
+          cp lab/client-checks.txt out/Visual_Animation_Lab_MC26.2/ 2>/dev/null || true
+          cp lab/client-latest.log out/Visual_Animation_Lab_MC26.2/ 2>/dev/null || true
+          cp lab/static-inspection.txt out/Visual_Animation_Lab_MC26.2/ 2>/dev/null || true
+
+          cd out
+          zip -r Visual_Animation_Lab_MC26.2_TEST_READY.zip Visual_Animation_Lab_MC26.2
+          cd ..
+          sha256sum out/Visual_Animation_Lab_MC26.2_TEST_READY.zip > out/PACK_SHA256.txt
+
+      - name: Upload experiment outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Visual_Animation_Lab_MC26.2
+          path: |
+            out/Visual_Animation_Lab_MC26.2_TEST_READY.zip
+            out/PACK_SHA256.txt
+            lab/client-checks.txt
+            lab/client-latest.log
+            lab/client-console.log
+            lab/static-inspection.txt
+            lab/server/server-smoke.log
+          if-no-files-found: warn
+
+      - name: Final gate
+        if: always()
+        run: |
+          set -euxo pipefail
+          grep -q "CLIENT_BOOT_PASS=YES" lab/client-checks.txt
+          grep -q "Done (" lab/server/server-smoke.log
