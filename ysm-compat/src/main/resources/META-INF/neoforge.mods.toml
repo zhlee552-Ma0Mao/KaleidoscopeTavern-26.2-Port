@@ -1,0 +1,39 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+
+[[mixins]]
+config="ysm_26_2_compat.mixins.json"
+requiredMods=["yes_steve_model"]
+
+[[mods]]
+modId="ysm_26_2_compat"
+version="0.1.0-probe"
+displayName="YSM 26.2 Compatibility Bridge"
+authors="ZHLEE compatibility test"
+displayTest="IGNORE_ALL_VERSION"
+description='''
+External compatibility bridge for Yes Steve Model 2.6.5 on Minecraft 26.2.
+This mod does not modify or redistribute the YSM jar.
+'''
+
+[[dependencies.ysm_26_2_compat]]
+modId="neoforge"
+type="required"
+versionRange="[26.2.0.88,)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.ysm_26_2_compat]]
+modId="minecraft"
+type="required"
+versionRange="[26.2]"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.ysm_26_2_compat]]
+modId="yes_steve_model"
+type="required"
+versionRange="[2.6.5,)"
+ordering="AFTER"
+side="CLIENT"
