@@ -64,10 +64,30 @@ if sandwich_java.exists():
                   "int max = RotationSegment.getMaxSegmentIndex() + 1;\n        return state.setValue(ROTATION, mirror.mirror(state.getValue(ROTATION), max));")
     sandwich_java.write_text(t, encoding="utf-8")
 
-# The 26.2 SandwichBoardBlockItem intentionally uses one shared item translation key.
-# Official 1.2 language files still carry the old block key, so mirror it to the item key.
+# Preserve the complete official 26.1.2 translations, then overlay 1.2/ref additions.
+# The 26.2 scaffold contains the current item-group/item/gui keys that the 1.2/ref
+# language files do not consistently carry. Rebuilding valid JSON also fixes the
+# malformed language resource that made Minecraft skip the whole file.
 import json
 lang_dir = work / "src/main/resources/assets/kaleidoscope_tavern/lang"
+base_lang_dir = base / "src/main/resources/assets/kaleidoscope_tavern/lang"
+if lang_dir.exists():
+    for lang_file in lang_dir.glob("*.json"):
+        merged_lang = {}
+        base_lang = base_lang_dir / lang_file.name
+        if base_lang.exists():
+            try:
+                merged_lang.update(json.loads(base_lang.read_text(encoding="utf-8")))
+            except Exception:
+                pass
+        try:
+            merged_lang.update(json.loads(lang_file.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+        lang_file.write_text(json.dumps(merged_lang, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+
+# The 26.2 SandwichBoardBlockItem intentionally uses one shared item translation key.
+# Official 1.2 language files still carry the old block key, so mirror it to the item key.
 if lang_dir.exists():
     for lang_file in lang_dir.glob("*.json"):
         try:
