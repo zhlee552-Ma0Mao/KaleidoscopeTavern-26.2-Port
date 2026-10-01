@@ -66,15 +66,22 @@ jobs:
         run: |
           mkdir -p run/server
           echo "eula=true" > run/server/eula.txt
+          cat > run/server/server.properties <<'EOF'
+          enable-rcon=true
+          rcon.password=ci
+          rcon.port=25575
+          online-mode=false
+          EOF
           rm -rf run/server/world run/server/logs
-          (
-            while ! grep -q "Done (" run/server/logs/latest.log 2>/dev/null; do sleep 2; done
-            echo "save-all"
-            sleep 3
-            echo "stop"
-          ) | timeout 180s ./gradlew --no-daemon runServer 2>&1 | tee ../server-first.log
-          test ${PIPESTATUS[1]} -eq 0
+          timeout 180s ./gradlew --no-daemon runServer > ../server-first.log 2>&1 &
+          SERVER_PID=$!
+          for i in {1..75}; do grep -q "Done (" run/server/logs/latest.log 2>/dev/null && break; sleep 2; done
           grep -q "Done (" run/server/logs/latest.log
+          python3 ../scripts/ci_rcon.py save-all
+          sleep 3
+          python3 ../scripts/ci_rcon.py stop
+          wait $SERVER_PID
+          grep -q "All dimensions are saved" run/server/logs/latest.log
           test -f run/server/world/level.dat
 
       - name: Dedicated server same-world restart
@@ -84,14 +91,15 @@ jobs:
         continue-on-error: true
         run: |
           rm -rf run/server/logs
-          (
-            while ! grep -q "Done (" run/server/logs/latest.log 2>/dev/null; do sleep 2; done
-            echo "save-all"
-            sleep 3
-            echo "stop"
-          ) | timeout 180s ./gradlew --no-daemon runServer 2>&1 | tee ../server-restart.log
-          test ${PIPESTATUS[1]} -eq 0
+          timeout 180s ./gradlew --no-daemon runServer > ../server-restart.log 2>&1 &
+          SERVER_PID=$!
+          for i in {1..75}; do grep -q "Done (" run/server/logs/latest.log 2>/dev/null && break; sleep 2; done
           grep -q "Done (" run/server/logs/latest.log
+          python3 ../scripts/ci_rcon.py save-all
+          sleep 3
+          python3 ../scripts/ci_rcon.py stop
+          wait $SERVER_PID
+          grep -q "All dimensions are saved" run/server/logs/latest.log
           test -f run/server/world/level.dat
 
       - name: Collect compiler errors
