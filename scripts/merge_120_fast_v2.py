@@ -384,4 +384,44 @@ if p.exists():
         t = t.rsplit("}", 1)[0] + insert + "}\n"
     p.write_text(t, encoding="utf-8")
 
+
+# 26.2 compatibility: use complete current loader-neutral implementations.
+for relstr in [
+    "com/github/ysbbbbbb/kaleidoscopetavern/item/BottleBlockItem.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/item/DrinkBlockItem.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/datamap/data/DrinkEffectData.java",
+]:
+    src = rj / relstr
+    if src.exists():
+        dst = wj / relstr
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        txt = src.read_text(encoding="utf-8")
+        for prefix in ["ModBlocks", "ModItems", "ModDataComponents", "ModSounds", "ModParticles", "ModRecipes"]:
+            txt = re.sub(rf"\\b{prefix}\\.([A-Z][A-Z0-9_]*)(?!\\.get\\(\\))", rf"{prefix}.\\1.get()", txt)
+        dst.write_text(txt, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    for imp in [
+        "import net.minecraft.sounds.SoundSource;",
+        "import net.minecraft.world.level.Level;",
+        "import net.neoforged.neoforge.items.IItemHandler;",
+        "import net.neoforged.neoforge.items.wrapper.PlayerMainInvWrapper;",
+    ]:
+        if imp not in t:
+            t = t.replace("package com.github.ysbbbbbb.kaleidoscopetavern.util;\\n",
+                          "package com.github.ysbbbbbb.kaleidoscopetavern.util;\\n\\n" + imp + "\\n", 1)
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/blockentity/mixology/ShakerBlockEntity.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace("ItemUtils.insertItemStacked(storage, copy, false);", "ItemUtils.insertItem(storage, copy, false);")
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/event/VanillaBottlePlaceEvent.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace("InteractionResult.sidedSuccess(level.isClientSide())", "InteractionResult.SUCCESS")
+    p.write_text(t, encoding="utf-8")
+
 print("Applied fast merge v2: 26.2 reference classes + NeoForge registry additions")
