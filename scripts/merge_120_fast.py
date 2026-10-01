@@ -23,6 +23,19 @@ for name in ["pack.mcmeta"]:
     if src.exists():
         shutil.copy2(src, work / "src/main/resources" / name)
 
+# Overlay the Refabricated 26.2 resource conversion last. The original 1.2 assets
+# use pre-26.2 item/model resource layouts; the 26.2 reference keeps the same
+# Tavern artwork/content while supplying Minecraft 26.2-compatible JSON paths.
+for sub in ["assets", "data"]:
+    src = ref / "src/main/resources" / sub
+    dst = work / "src/main/resources" / sub
+    if src.exists():
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+
+ref_pack = ref / "src/main/resources/pack.mcmeta"
+if ref_pack.exists():
+    shutil.copy2(ref_pack, work / "src/main/resources/pack.mcmeta")
+
 base_java = base / "src/main/java"
 feature_java = feature / "src/main/java"
 work_java = work / "src/main/java"
