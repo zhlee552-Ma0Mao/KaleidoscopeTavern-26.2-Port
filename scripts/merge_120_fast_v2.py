@@ -131,6 +131,30 @@ for relstr in [
         txt = txt.replace("import net.minecraft.MethodsReturnNonnullByDefault;\n", "")
         p.write_text(txt, encoding="utf-8")
 
+# NeoForge 26.2 renamed the server reload registration event.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/init/register/DatapackReloadListenerEvent.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace("AddReloadListenerEvent", "AddServerReloadListenersEvent")
+    p.write_text(t, encoding="utf-8")
+
+# 26.2 drink effects are reload-listener backed; adapt the old registry/resolver model.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/init/ModDatapackRegistries.java"
+if p.exists():
+    p.unlink()
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/datamap/DrinkEffectResolver.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    t = t.replace("data.entriesForLevel(clampActiveBrewLevel(brewLevel))",
+                  "data.effects().get(Math.min(clampActiveBrewLevel(brewLevel), data.effects().size()) - 1)")
+    t = t.replace("entry.durationTicks()", "entry.duration() * 20")
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/network/message/DrinkEffectSyncS2CMessage.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace("data.item().value()", "data.item()")
+    p.write_text(t, encoding="utf-8")
+
 # ---------- NeoForge 26.2 registry additions ----------
 
 # Data components
