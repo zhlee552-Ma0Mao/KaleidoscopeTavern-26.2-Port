@@ -29,7 +29,9 @@ jobs:
         run: git clone --depth 1 --branch 26.2-fabric https://github.com/NightEpiphany/KaleidoscopeTavern-Refabricated.git upstream-refabricated-26.2
 
       - name: Prepare NeoForge 26.2 port workspace
-        run: python3 scripts/prepare_port.py
+        run: |
+          python3 scripts/prepare_port.py
+          python3 scripts/merge_120_fast.py
 
       - name: Show merge summary
         run: |
