@@ -286,8 +286,7 @@ if p.exists():
     t = p.read_text(encoding="utf-8")
     old = "zombieVillager.startConverting(null, 60);"
     new = """try {
-                    var method = net.minecraft.world.entity.monster.ZombieVillager.class
-                            .getDeclaredMethod("startConverting", java.util.UUID.class, int.class);
+                    var method = zombieVillager.getClass().getDeclaredMethod("startConverting", java.util.UUID.class, int.class);
                     method.setAccessible(true);
                     method.invoke(zombieVillager, null, 60);
                 } catch (ReflectiveOperationException exception) {
