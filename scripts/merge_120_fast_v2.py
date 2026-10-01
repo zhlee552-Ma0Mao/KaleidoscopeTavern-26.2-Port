@@ -202,6 +202,22 @@ if p.exists():
     t = p.read_text(encoding="utf-8").replace("data.item().value()", "data.item()")
     p.write_text(t, encoding="utf-8")
 
+# Restore the 1.2 network payload registrations on top of the NeoForge 26.2 scaffold.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    if "DrinkEffectSyncS2CMessage" not in t:
+        t = t.replace(
+            "import com.github.ysbbbbbb.kaleidoscopetavern.network.message.TextOpenS2CMessage;",
+            "import com.github.ysbbbbbb.kaleidoscopetavern.network.message.TextOpenS2CMessage;\\n"
+            "import com.github.ysbbbbbb.kaleidoscopetavern.network.message.ClearShakerC2SMessage;\\n"
+            "import com.github.ysbbbbbb.kaleidoscopetavern.network.message.DrinkEffectSyncS2CMessage;"
+        )
+    marker = "        registrar.playToClient(TextOpenS2CMessage.TYPE, TextOpenS2CMessage.STREAM_CODEC, TextOpenS2CMessage::handle);"
+    if "registrar.playToClient(DrinkEffectSyncS2CMessage.TYPE" not in t:
+        t = t.replace(marker, marker + "\\n        registrar.playToServer(ClearShakerC2SMessage.TYPE, ClearShakerC2SMessage.STREAM_CODEC, ClearShakerC2SMessage::handle);\\n        registrar.playToClient(DrinkEffectSyncS2CMessage.TYPE, DrinkEffectSyncS2CMessage.STREAM_CODEC, DrinkEffectSyncS2CMessage::handle);")
+    p.write_text(t, encoding="utf-8")
+
 # Small 26.2 compatibility fixes that preserve the NeoForge implementation.
 p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/init/register/DatapackReloadListenerEvent.java"
 if p.exists():
