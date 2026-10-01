@@ -40,7 +40,10 @@ for rel in added:
 # 26.2 renderer state classes are new API support files absent from the 1.21.1 tree.
 state_src = ref / "com/github/ysbbbbbb/kaleidoscopetavern/client/render/renderstate"
 if state_src.exists():
+    needed_states = {"GlasswareHolderBlockEntityRenderState.java", "ShakerBlockEntityRenderState.java", "StorageBlockEntityRenderState.java"}
     for src in state_src.rglob("*.java"):
+        if src.name not in needed_states:
+            continue
         rel = src.relative_to(ref)
         text = src.read_text(encoding="utf-8")
         if "net.fabricmc.fabric" in text:
