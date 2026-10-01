@@ -60,7 +60,7 @@ jobs:
 
       - name: Dedicated server first boot and clean stop
         id: server_boot
-        if: steps.jar.outcome == 'success'
+        if: steps.jar.outcome == 'success' && !cancelled()
         working-directory: work
         continue-on-error: true
         run: |
@@ -79,7 +79,7 @@ jobs:
 
       - name: Dedicated server same-world restart
         id: server_restart
-        if: steps.server_boot.outcome == 'success'
+        if: steps.server_boot.outcome == 'success' && !cancelled()
         working-directory: work
         continue-on-error: true
         run: |
