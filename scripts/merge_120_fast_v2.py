@@ -295,6 +295,22 @@ if p.exists():
     t = t.replace(old, new)
     p.write_text(t, encoding="utf-8")
 
+# Resolve remaining bottle constructor mismatch without replacing the NeoForge class.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/block/brew/PotionBottleBlock.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace(
+        "super(properties, BottleBlock.SIMPLE_BOTTLE_SHAPE);",
+        "super(properties, false);")
+    p.write_text(t, encoding="utf-8")
+
+# Shaker storage is the port's util.neo handler, not NeoForge's legacy handler helper.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/blockentity/mixology/ShakerBlockEntity.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace(
+        "net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(storage, copy, false)",
+        "ItemUtils.insertItemStacked(storage, copy, false)")
+    p.write_text(t, encoding="utf-8")
+
 # Do not globally rewrite registry references: some references are already concrete
 # values or appear in declarations. Targeted copied classes above are adapted separately.
 
