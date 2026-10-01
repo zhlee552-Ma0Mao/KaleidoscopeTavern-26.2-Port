@@ -149,6 +149,42 @@ if text_renderer.exists():
         }""")
     text_renderer.write_text(t, encoding="utf-8")
 
+# Preserve the full 16-step sandwich-board rotation in renderer state. Collapsing it to
+# four cardinal directions makes the 1.2 text transform incorrect/invisible.
+text_state = work / "com/github/ysbbbbbb/kaleidoscopetavern/client/render/block/state/TextBlockRenderState.java"
+if text_state.exists():
+    t = text_state.read_text(encoding="utf-8")
+    if "public int rotation = 0;" not in t:
+        t = t.replace("public Direction facing = Direction.NORTH;", "public Direction facing = Direction.NORTH;\n    public int rotation = 0;")
+    text_state.write_text(t, encoding="utf-8")
+
+if text_renderer.exists():
+    t = text_renderer.read_text(encoding="utf-8")
+    t = t.replace("state.facing = net.minecraft.core.Direction.fromYRot(textBlock.getBlockState().getValue(SandwichBoardBlock.ROTATION) * 22.5f);",
+                  "state.rotation = textBlock.getBlockState().getValue(SandwichBoardBlock.ROTATION);\n            state.facing = net.minecraft.core.Direction.fromYRot(state.rotation * 22.5f);")
+    text_renderer.write_text(t, encoding="utf-8")
+
+sandwich_renderer = work / "com/github/ysbbbbbb/kaleidoscopetavern/client/render/block/SandwichBlockEntityRender.java"
+if sandwich_renderer.exists():
+    t = sandwich_renderer.read_text(encoding="utf-8")
+    start = t.index("        poseStack.pushPose();", t.index("public void submit"))
+    end = t.index("        poseStack.popPose();", start) + len("        poseStack.popPose();")
+    body = """        float angle = state.rotation * 22.5f + 180.0f;
+        float radians = (float) Math.toRadians(angle);
+        float xOffset = (float) (-Math.sin(radians) * 0.06f);
+        float zOffset = (float) (Math.cos(radians) * 0.06f);
+        float tiltAxisX = (float) -Math.cos(radians);
+        float tiltAxisZ = (float) -Math.sin(radians);
+
+        poseStack.pushPose();
+        poseStack.translate(0.5 + xOffset, 1.06, 0.5 + zOffset);
+        poseStack.mulPose(new org.joml.Quaternionf().rotateAxis((float) Math.toRadians(22.5f), tiltAxisX, 0.0f, tiltAxisZ));
+        poseStack.mulPose(Axis.YN.rotationDegrees(angle));
+        doTextRender(state, poseStack, submitNodeCollector, state.text, MAX_WIDTH, TEXT_SCALE, MAX_LINES, LINE_HEIGHT);
+        poseStack.popPose();"""
+    t = t[:start] + body + t[end:]
+    sandwich_renderer.write_text(t, encoding="utf-8")
+
 # Wire the new 1.2 client features into NeoForge's 26.2 client events.
 setup = work / "com/github/ysbbbbbb/kaleidoscopetavern/client/init/ClientSetupEvent.java"
 st = setup.read_text(encoding="utf-8")
