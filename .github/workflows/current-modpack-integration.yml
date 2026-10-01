@@ -34,8 +34,10 @@ jobs:
           cd lab/cookery-src
           chmod +x gradlew
           ./gradlew --no-daemon build
-          find build/libs -type f -name '*.jar' -not -name '*sources*' -not -name '*javadoc*' -print
-          cp "$(find build/libs -type f -name '*.jar' -not -name '*sources*' -not -name '*javadoc*' | head -1)" ../mods/kaleidoscope_cookery_26.2_1.5.1.jar
+          find . -type f -path '*/libs/*.jar' -not -name '*sources*' -not -name '*javadoc*' -print
+          JAR="$(find . -type f -path '*/libs/*.jar' -not -name '*sources*' -not -name '*javadoc*' | head -1)"
+          test -n "$JAR"
+          cp "$JAR" ../mods/kaleidoscope_cookery_26.2_1.5.1.jar
           cd ../..
 
       - name: Download currently approved mods from official sources
