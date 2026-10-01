@@ -77,7 +77,10 @@ for relstr in [
     if src.exists():
         dst = wj / relstr
         dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        txt = src.read_text(encoding="utf-8")
+        for prefix in ["ModBlocks", "ModItems", "ModDataComponents", "ModSounds", "ModParticles", "ModRecipes"]:
+            txt = re.sub(rf"\\b{prefix}\\.([A-Z][A-Z0-9_]*)(?!\\.get\\(\\))", rf"{prefix}.\\1.get()", txt)
+        dst.write_text(txt, encoding="utf-8")
 
 # Remove package-level annotations deleted from Minecraft 26.2.
 for relstr in [
