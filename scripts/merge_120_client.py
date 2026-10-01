@@ -23,8 +23,9 @@ for rel in added:
     src = rs if rs.exists() else fs
     text = src.read_text(encoding="utf-8")
     if "net.fabricmc." in text:
-        held.append(s)
-        continue
+        # Keep NeoForge event/render architecture from the official 1.2 source;
+        # the Fabric port is still useful only as an API reference here.
+        text = fs.read_text(encoding="utf-8")
     text = text.replace("net.minecraft.resources.ResourceLocation", "net.minecraft.resources.Identifier")
     text = text.replace("ResourceLocation.fromNamespaceAndPath", "Identifier.fromNamespaceAndPath")
     text = text.replace("ResourceLocation.parse", "Identifier.parse")
