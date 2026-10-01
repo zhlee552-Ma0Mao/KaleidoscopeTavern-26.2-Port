@@ -19,7 +19,7 @@ for rel in added:
         continue
     rs, fs = ref / rel, feature / rel
     text = (rs if rs.exists() else fs).read_text(encoding="utf-8")
-    if "net.fabricmc.fabric" in text and not s.startswith(prefix + "particle/"):
+    if "net.fabricmc.fabric" in text and not (s.startswith(prefix + "particle/") or s.endswith("ShakerOverlay.java")):
         text = fs.read_text(encoding="utf-8")
     else:
         text = text.replace("import net.fabricmc.api.EnvType;\n", "")
@@ -61,3 +61,19 @@ with (root / "merged-files.txt").open("a", encoding="utf-8") as out:
     for s in merged:
         out.write("CLIENT " + s + "\n")
 print("client merged", len(merged))
+
+
+# 26.2 changed block tint registration APIs. Preserve the color calculations in NeoForge-compatible helpers;
+# registration is bridged by the NeoForge client setup separately.
+for relname in [
+    "com/github/ysbbbbbb/kaleidoscopetavern/client/render/misc/SignatureCocktailColor.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/client/render/misc/PotionBottleColor.java",
+]:
+    p = work / relname
+    if p.exists():
+        t = p.read_text(encoding="utf-8")
+        t = t.replace("import net.fabricmc.fabric.api.client.rendering.v1.BlockTintsFactory;\n", "")
+        t = t.replace("import it.unimi.dsi.fastutil.ints.IntList;\n", "")
+        t = t.replace("implements BlockTintsFactory", "")
+        t = re.sub(r"\s*@Override\s*\n\s*public void collect\([\s\S]*?\n\s*}\n}", "\n}", t, count=1)
+        p.write_text(t, encoding="utf-8")
