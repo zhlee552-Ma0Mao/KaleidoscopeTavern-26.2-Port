@@ -43,6 +43,43 @@ ref_pack = ref / "src/main/resources/pack.mcmeta"
 if ref_pack.exists():
     shutil.copy2(ref_pack, work / "src/main/resources/pack.mcmeta")
 
+# 26.2 sandwich-board compatibility: the 1.2 blockstates use the 16-step
+# "rotation" property. The 26.1.2 scaffold temporarily used horizontal "facing",
+# which makes every 1.2 sandwich-board blockstate miss and renders the missing-model cube.
+sandwich_java = work / "src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/block/deco/SandwichBoardBlock.java"
+if sandwich_java.exists():
+    t = sandwich_java.read_text(encoding="utf-8")
+    t = t.replace("public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;",
+                  "public static final IntegerProperty ROTATION = BlockStateProperties.ROTATION_16;")
+    t = t.replace(".setValue(FACING, Direction.NORTH)", ".setValue(ROTATION, 0)")
+    t = t.replace(".setValue(FACING, state.getValue(FACING))", ".setValue(ROTATION, state.getValue(ROTATION))")
+    t = t.replace("return state.setValue(FACING, neighborState.getValue(FACING));",
+                  "return state.setValue(ROTATION, neighborState.getValue(ROTATION));")
+    t = t.replace("builder.add(FACING, HALF, WATERLOGGED);", "builder.add(ROTATION, HALF, WATERLOGGED);")
+    t = t.replace("return this.defaultBlockState()\n                    .setValue(FACING, context.getHorizontalDirection().getOpposite())",
+                  "int rotation = RotationSegment.convertToSegment(context.getRotation());\n            return this.defaultBlockState()\n                    .setValue(ROTATION, rotation)")
+    t = t.replace("return state.setValue(FACING, rot.rotate(state.getValue(FACING)));",
+                  "int max = RotationSegment.getMaxSegmentIndex() + 1;\n        return state.setValue(ROTATION, rot.rotate(state.getValue(ROTATION), max));")
+    t = t.replace("return state.rotate(mirror.getRotation(state.getValue(FACING)));",
+                  "int max = RotationSegment.getMaxSegmentIndex() + 1;\n        return state.setValue(ROTATION, mirror.mirror(state.getValue(ROTATION), max));")
+    sandwich_java.write_text(t, encoding="utf-8")
+
+# The 26.2 SandwichBoardBlockItem intentionally uses one shared item translation key.
+# Official 1.2 language files still carry the old block key, so mirror it to the item key.
+import json
+lang_dir = work / "src/main/resources/assets/kaleidoscope_tavern/lang"
+if lang_dir.exists():
+    for lang_file in lang_dir.glob("*.json"):
+        try:
+            data = json.loads(lang_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        block_key = "block.kaleidoscope_tavern.sandwich_board"
+        item_key = "item.kaleidoscope_tavern.sandwich_board"
+        if item_key not in data and block_key in data:
+            data[item_key] = data[block_key]
+            lang_file.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+
 base_java = base / "src/main/java"
 feature_java = feature / "src/main/java"
 work_java = work / "src/main/java"
