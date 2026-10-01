@@ -261,8 +261,8 @@ if barrel_be.exists():
         t = t.replace(old, new)
     barrel_be.write_text(t, encoding="utf-8")
 
-# Player-facing parity fixes: never consume the vanilla bucket itself, and provide
-# Chinese fallback for both Simplified and Traditional Chinese game language choices.
+# Player-facing parity fixes: preserve the vanilla bucket container and rebuild
+# Chinese localization from known-good upstream JSON instead of reparsing a merged file.
 barrel_block = work_java / "com/github/ysbbbbbb/kaleidoscopetavern/block/brew/BarrelBlock.java"
 if barrel_block.exists():
     t = barrel_block.read_text(encoding="utf-8")
@@ -274,8 +274,6 @@ if barrel_block.exists():
     new = """                    if (!fluidStack.isEmpty()) {
                         boolean vanillaWaterBucket = itemInHand.is(Items.WATER_BUCKET);
                         if (barrelEntity.addFluid(player, itemAccess)) {
-                            // NeoForge 26.2 transfer must preserve the bucket container.
-                            // Guard vanilla water buckets explicitly against a consumed/empty hand regression.
                             if (vanillaWaterBucket && player.getItemInHand(hand).isEmpty()) {
                                 player.setItemInHand(hand, new ItemStack(Items.BUCKET));
                             }
@@ -286,15 +284,28 @@ if barrel_block.exists():
         t = t.replace(old, new)
     barrel_block.write_text(t, encoding="utf-8")
 
-lang_dir = work / "src/main/resources/assets/kaleidoscope_tavern/lang"
-zh_cn = lang_dir / "zh_cn.json"
-zh_tw = lang_dir / "zh_tw.json"
-if zh_cn.exists():
-    # Tavern upstream ships zh_cn; mirror it as zh_tw so Chinese users do not fall back to English.
-    import json
-    zh_data = json.loads(zh_cn.read_text(encoding="utf-8"))
-    zh_cn.write_text(json.dumps(zh_data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
-    zh_tw.write_text(json.dumps(zh_data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+# Reconstruct zh_cn from three clean upstream sources. This deliberately ignores the
+# already-overlaid file because older merge stages can leave concatenated JSON in it.
+def load_lang(path):
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+lang_dir.mkdir(parents=True, exist_ok=True)
+zh_data = {}
+for source in [
+    base / "src/main/resources/assets/kaleidoscope_tavern/lang/zh_cn.json",
+    feature / "src/main/resources/assets/kaleidoscope_tavern/lang/zh_cn.json",
+    ref / "src/main/resources/assets/kaleidoscope_tavern/lang/zh_cn.json",
+]:
+    zh_data.update(load_lang(source))
+if not zh_data:
+    raise SystemExit("No valid upstream zh_cn translation data found")
+for name in ["zh_cn.json", "zh_tw.json"]:
+    (lang_dir / name).write_text(json.dumps(zh_data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
 
 # Mark this build as a real 1.2 merge attempt.
 gp = work / "gradle.properties"
