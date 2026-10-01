@@ -58,6 +58,42 @@ jobs:
           ./gradlew --no-daemon jar --stacktrace 2>&1 | tee ../jar.log
           test ${PIPESTATUS[0]} -eq 0
 
+      - name: Dedicated server first boot and clean stop
+        id: server_boot
+        if: steps.jar.outcome == 'success'
+        working-directory: work
+        continue-on-error: true
+        run: |
+          mkdir -p run/server
+          echo "eula=true" > run/server/eula.txt
+          rm -rf run/server/world run/server/logs
+          (
+            while ! grep -q "Done (" run/server/logs/latest.log 2>/dev/null; do sleep 2; done
+            echo "save-all"
+            sleep 3
+            echo "stop"
+          ) | timeout 180s ./gradlew --no-daemon runServer 2>&1 | tee ../server-first.log
+          test ${PIPESTATUS[1]} -eq 0
+          grep -q "Done (" run/server/logs/latest.log
+          test -f run/server/world/level.dat
+
+      - name: Dedicated server same-world restart
+        id: server_restart
+        if: steps.server_boot.outcome == 'success'
+        working-directory: work
+        continue-on-error: true
+        run: |
+          rm -rf run/server/logs
+          (
+            while ! grep -q "Done (" run/server/logs/latest.log 2>/dev/null; do sleep 2; done
+            echo "save-all"
+            sleep 3
+            echo "stop"
+          ) | timeout 180s ./gradlew --no-daemon runServer 2>&1 | tee ../server-restart.log
+          test ${PIPESTATUS[1]} -eq 0
+          grep -q "Done (" run/server/logs/latest.log
+          test -f run/server/world/level.dat
+
       - name: Collect compiler errors
         if: always()
         run: |
@@ -66,6 +102,7 @@ jobs:
           mkdir -p output
           cp compile.log compile-errors.txt port-merged-files.txt output/ || true
           cp jar.log output/ 2>/dev/null || true
+          cp server-first.log server-restart.log output/ 2>/dev/null || true
           cp work/build/libs/*.jar output/ 2>/dev/null || true
 
       - name: Upload build/debug artifact
@@ -76,6 +113,6 @@ jobs:
           path: output/
           if-no-files-found: warn
 
-      - name: Fail job if compile failed
-        if: steps.compile.outcome != 'success'
+      - name: Fail job if validation failed
+        if: steps.compile.outcome != 'success' || steps.jar.outcome != 'success' || steps.server_boot.outcome != 'success' || steps.server_restart.outcome != 'success'
         run: exit 1
