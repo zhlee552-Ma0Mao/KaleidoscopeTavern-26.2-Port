@@ -82,6 +82,16 @@ for relstr in [
             txt = re.sub(rf"\\b{prefix}\\.([A-Z][A-Z0-9_]*)(?!\\.get\\(\\))", rf"{prefix}.\\1.get()", txt)
         dst.write_text(txt, encoding="utf-8")
 
+# NeoForge registry wrappers are Suppliers/DeferredHolders; apply the same unwrap pass
+# to every Java file after all 26.2 reference replacements, including files copied above.
+for dst in wj.rglob("*.java"):
+    txt = dst.read_text(encoding="utf-8")
+    original = txt
+    for prefix in ["ModBlocks", "ModItems", "ModDataComponents", "ModSounds", "ModParticles", "ModRecipes"]:
+        txt = re.sub(rf"\\b{prefix}\\.([A-Z][A-Z0-9_]*)(?!\\.get\\(\\))", rf"{prefix}.\\1.get()", txt)
+    if txt != original:
+        dst.write_text(txt, encoding="utf-8")
+
 # Remove package-level annotations deleted from Minecraft 26.2.
 for relstr in [
     "com/github/ysbbbbbb/kaleidoscopetavern/block/package-info.java",
