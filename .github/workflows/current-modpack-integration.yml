@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Java 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
@@ -267,20 +267,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Java 25
-        uses: actions/setup-java@v4
+      - name: Java 21 for source baseline
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '21'
 
-      - name: Clone Straw Golem 1.21.8 NeoForge base
+      - name: Clone and verify Straw Golem 1.21.8 NeoForge base
         run: |
           set -euxo pipefail
           git clone --depth 1 --branch 1.21.8 https://github.com/HeroBrianMack/RE-Strawgolem.git strawgolem
           cd strawgolem
           chmod +x gradlew
+          set +e
           ./gradlew --no-daemon :neoforge:build > ../baseline.log 2>&1
+          RC=$?
+          set -e
+          echo "$RC" > ../straw-baseline-exit.txt
           cd ..
+
+      - name: Java 25 for Minecraft 26.2
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
 
       - name: First mechanical 26.2 port probe
         continue-on-error: true
@@ -296,14 +306,18 @@ jobs:
             "minecraft_version=1.21.8":"minecraft_version=26.2",
             "minecraft_version_range=[1.21, 1.22)":"minecraft_version_range=[26.2, 26.3)",
             "neoforge_version=21.8.54":"neoforge_version=26.2.0.88",
-            "neo_form_version=1.21.8-20250717.133445":"neo_form_version=26.2-202609??",
+            "neo_form_version=1.21.8-20250717.133445":"neo_form_version=26.2-1",
             "neo_moddev_version=2.0.142":"neo_moddev_version=2.0.147",
             "geckolib_version=5.2.2":"geckolib_version=5.5.6",
           }
           for a,b in repl.items(): s=s.replace(a,b)
-          # ModDevGradle 26.2 supplies NeoForm; remove stale explicit neo form line value rather than guess.
-          s=s.replace("neo_form_version=26.2-202609??","neo_form_version=")
           open(p,"w",encoding="utf-8").write(s)
+
+          import re
+          for bp in ["common/build.gradle","neoforge/build.gradle"]:
+              t=open(bp,encoding="utf-8").read()
+              t=re.sub(r'\n\s*parchment\s*\{.*?\n\s*\}', '', t, flags=re.S)
+              open(bp,"w",encoding="utf-8").write(t)
           PY
           ./gradlew --no-daemon :neoforge:compileJava > ../port-compile.log 2>&1
           RC=$?
@@ -316,7 +330,7 @@ jobs:
           set -euxo pipefail
           {
             echo "=== STRAW GOLEM 26.2 FIRST PROBE ==="
-            echo "Baseline 1.21.8 NeoForge build: PASS"
+            echo "Baseline 1.21.8 NeoForge build exit: $(cat straw-baseline-exit.txt)"
             echo "Port compile exit: $(cat straw-port-exit.txt)"
             echo
             grep -E "error:|FAILURE:|Could not|cannot find symbol|package .* does not exist" port-compile.log | head -200 || true
@@ -332,25 +346,36 @@ jobs:
             baseline.log
             gradle.properties.before
             straw-port-exit.txt
+            straw-baseline-exit.txt
 
   carts_probe:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Java 25
-        uses: actions/setup-java@v4
+      - name: Java 21 for source baseline
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '21'
 
-      - name: Clone AstikorCarts Redux 1.21.8 NeoForge base
+      - name: Clone and verify AstikorCarts Redux 1.21.8 NeoForge base
         run: |
           set -euxo pipefail
           git clone --depth 1 --branch 1.21.8-neo https://github.com/jusipat/astikor-carts-redux.git carts
           cd carts
           chmod +x gradlew
+          set +e
           ./gradlew --no-daemon build > ../baseline.log 2>&1
+          RC=$?
+          set -e
+          echo "$RC" > ../carts-baseline-exit.txt
           cd ..
+
+      - name: Java 25 for Minecraft 26.2
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
 
       - name: First mechanical 26.2 port probe
         continue-on-error: true
@@ -367,8 +392,15 @@ jobs:
           s=s.replace("neo_version=21.8.35","neo_version=26.2.0.88")
           open(p,"w",encoding="utf-8").write(s)
           PY
-          sed -i "s/version '2.0.107'/version '2.0.147'/" build.gradle
-          sed -i "s/JavaLanguageVersion.of(21)/JavaLanguageVersion.of(25)/" build.gradle
+          python3 - <<'PY'
+          import re
+          p="build.gradle"
+          s=open(p,encoding="utf-8").read()
+          s=s.replace("version '2.0.107'","version '2.0.147'")
+          s=s.replace("JavaLanguageVersion.of(21)","JavaLanguageVersion.of(25)")
+          s=re.sub(r'\n\s*parchment\s*\{.*?\n\s*\}', '', s, flags=re.S)
+          open(p,"w",encoding="utf-8").write(s)
+          PY
           ./gradlew --no-daemon compileJava > ../port-compile.log 2>&1
           RC=$?
           echo "$RC" > ../carts-port-exit.txt
@@ -380,7 +412,7 @@ jobs:
           set -euxo pipefail
           {
             echo "=== ASTIKORCARTS REDUX 26.2 FIRST PROBE ==="
-            echo "Baseline 1.21.8 NeoForge build: PASS"
+            echo "Baseline 1.21.8 NeoForge build exit: $(cat carts-baseline-exit.txt)"
             echo "Port compile exit: $(cat carts-port-exit.txt)"
             echo
             grep -E "error:|FAILURE:|Could not|cannot find symbol|package .* does not exist" port-compile.log | head -240 || true
@@ -396,3 +428,4 @@ jobs:
             baseline.log
             gradle.properties.before
             carts-port-exit.txt
+            carts-baseline-exit.txt
