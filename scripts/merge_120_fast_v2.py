@@ -202,6 +202,34 @@ if p.exists():
     t = p.read_text(encoding="utf-8").replace("data.item().value()", "data.item()")
     p.write_text(t, encoding="utf-8")
 
+# Small 26.2 compatibility fixes that preserve the NeoForge implementation.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/init/register/DatapackReloadListenerEvent.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace("AddReloadListenerEvent", "AddServerReloadListenersEvent")
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/datamap/data/DrinkEffectData.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    if "DIRECT_CODEC" not in t:
+        pos = t.index("public static final Codec<DrinkEffectData> CODEC")
+        t = t[:pos] + "public static final Codec<DrinkEffectData> DIRECT_CODEC = CODEC;\n    " + t[pos:]
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/event/VanillaBottlePlaceEvent.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace(
+        "InteractionResult.sidedSuccess(level.isClientSide())",
+        "(level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER)")
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/block/AbstractStorageBlock.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace(
+        "drink.makeThrownPotion(level, shootPos.x(), shootPos.y(), shootPos.z(), brewLevel, null, movement);",
+        "drink.makeThrownPotion(level, shootPos.x(), shootPos.y(), shootPos.z(), brewLevel, null);")
+    p.write_text(t, encoding="utf-8")
+
 # Do not globally rewrite registry references: some references are already concrete
 # values or appear in declarations. Targeted copied classes above are adapted separately.
 
