@@ -33,6 +33,7 @@ jobs:
           python3 scripts/prepare_port.py
           python3 scripts/merge_120_fast.py
           python3 scripts/merge_120_fast_v2.py
+          python3 scripts/merge_120_client.py
 
       - name: Show merge summary
         run: |
