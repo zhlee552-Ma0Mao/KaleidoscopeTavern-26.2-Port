@@ -76,6 +76,9 @@ for relstr in [
     "com/github/ysbbbbbb/kaleidoscopetavern/api/client/IModelModifyRotationAfterBake.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/api/entity/PlayerExtraData.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/effect/ArdentHeatEffect.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/util/ColorUtils.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/item/BottleBlockItem.java",
 ]:
     src = rj / relstr
     if src.exists():
