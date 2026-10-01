@@ -224,6 +224,43 @@ if mod_recipes.exists():
         )
     mod_recipes.write_text(t, encoding="utf-8")
 
+# Restore Tavern 1.2 barrel gameplay parity on 26.2: when the barrel is open and
+# its upper barrel block is waterlogged, it must actually fill the internal 4-bucket tank.
+# The 26.1.2 NeoForge scaffold lost this behavior, which makes the player's bucket appear
+# consumed by waterlogging while fermentation never gets enough internal fluid to start.
+barrel_be = work_java / "com/github/ysbbbbbb/kaleidoscopetavern/blockentity/brew/BarrelBlockEntity.java"
+if barrel_be.exists():
+    t = barrel_be.read_text(encoding="utf-8")
+    if "import com.github.ysbbbbbb.kaleidoscopetavern.block.brew.BarrelBlock;" not in t:
+        t = t.replace("import com.github.ysbbbbbb.kaleidoscopetavern.api.blockentity.IBarrel;\n",
+                      "import com.github.ysbbbbbb.kaleidoscopetavern.api.blockentity.IBarrel;\nimport com.github.ysbbbbbb.kaleidoscopetavern.block.brew.BarrelBlock;\n")
+    if "import net.minecraft.world.level.material.Fluids;" not in t:
+        t = t.replace("import net.minecraft.world.level.block.state.BlockState;\n",
+                      "import net.minecraft.world.level.block.state.BlockState;\nimport net.minecraft.world.level.material.Fluids;\n")
+    if "BlockStateProperties.WATERLOGGED" not in t:
+        t = t.replace("import static net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING;",
+                      "import static net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING;\nimport static net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED;")
+    old = """        // 盖子打开时，不进行任何 tick
+        if (open) {
+            return;
+        }"""
+    new = """        // 盖子打开时允许玩家用水桶把上层桶 waterlog；同步把水灌入内部 4 桶容量。
+        if (open) {
+            BlockState upper = level.getBlockState(this.worldPosition.above());
+            if (upper.getBlock() instanceof BarrelBlock && upper.hasProperty(WATERLOGGED)
+                    && upper.getValue(WATERLOGGED) && fluid.getAmountAsInt(0) < MAX_FLUID_AMOUNT) {
+                try (Transaction tx = Transaction.openRoot()) {
+                    fluid.insert(0, FluidResource.of(Fluids.WATER), MAX_FLUID_AMOUNT - fluid.getAmountAsInt(0), tx);
+                    tx.commit();
+                }
+                this.refresh();
+            }
+            return;
+        }"""
+    if old in t:
+        t = t.replace(old, new)
+    barrel_be.write_text(t, encoding="utf-8")
+
 # Mark this build as a real 1.2 merge attempt.
 gp = work / "gradle.properties"
 if gp.exists():
