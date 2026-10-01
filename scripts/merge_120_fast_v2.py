@@ -79,7 +79,7 @@ for relstr in [
         dst.parent.mkdir(parents=True, exist_ok=True)
         txt = src.read_text(encoding="utf-8")
         for prefix in ["ModBlocks", "ModItems", "ModDataComponents", "ModSounds", "ModParticles", "ModRecipes"]:
-            txt = re.sub(rf"\\b{prefix}\\.([A-Z][A-Z0-9_]*)(?!\\.get\\(\\))", rf"{prefix}.\\1.get()", txt)
+            txt = re.sub(rf"\b{prefix}\.([A-Z][A-Z0-9_]*)(?!\.get\(\))", rf"{prefix}.\1.get()", txt)
         dst.write_text(txt, encoding="utf-8")
 
 # NeoForge registry wrappers are Suppliers/DeferredHolders; apply the same unwrap pass
@@ -88,7 +88,7 @@ for dst in wj.rglob("*.java"):
     txt = dst.read_text(encoding="utf-8")
     original = txt
     for prefix in ["ModBlocks", "ModItems", "ModDataComponents", "ModSounds", "ModParticles", "ModRecipes"]:
-        txt = re.sub(rf"\\b{prefix}\\.([A-Z][A-Z0-9_]*)(?!\\.get\\(\\))", rf"{prefix}.\\1.get()", txt)
+        txt = re.sub(rf"\b{prefix}\.([A-Z][A-Z0-9_]*)(?!\.get\(\))", rf"{prefix}.\1.get()", txt)
     if txt != original:
         dst.write_text(txt, encoding="utf-8")
 
