@@ -230,6 +230,35 @@ if p.exists():
         "drink.makeThrownPotion(level, shootPos.x(), shootPos.y(), shootPos.z(), brewLevel, null);")
     p.write_text(t, encoding="utf-8")
 
+# Complete focused compatibility shims discovered by CI.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/datamap/data/DrinkEffectData.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    t = t.replace("public static final Codec<DrinkEffectData> DIRECT_CODEC = CODEC;\n    public static final Codec<DrinkEffectData> CODEC",
+                  "public static final Codec<DrinkEffectData> CODEC")
+    if "public static final Codec<DrinkEffectData> DIRECT_CODEC = CODEC;" not in t:
+        needle = ").apply(instance, DrinkEffectData::new));"
+        t = t.replace(needle, needle + "\n\n    public static final Codec<DrinkEffectData> DIRECT_CODEC = CODEC;", 1)
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/init/register/DatapackReloadListenerEvent.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    t = t.replace("event.addListener(new DrinkEffectDataReloadListener());",
+                  'event.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("kaleidoscope_tavern", "drink_effect"), new DrinkEffectDataReloadListener());')
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/block/brew/BottleBlock.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    if "SIMPLE_BOTTLE_SHAPE" not in t:
+        cls = t.index("{", t.index("public class BottleBlock"))
+        t = t[:cls+1] + "\n    public static final net.minecraft.world.phys.shapes.VoxelShape SIMPLE_BOTTLE_SHAPE = net.minecraft.world.level.block.Block.box(5, 0, 5, 11, 10, 11);" + t[cls+1:]
+    if "static BottleBlock simpleBottle" not in t:
+        pos = t.rfind("}")
+        t = t[:pos] + "\n    public static BottleBlock simpleBottle(net.minecraft.world.level.block.state.BlockBehaviour.Properties properties) {\n        return new BottleBlock(properties, false);\n    }\n" + t[pos:]
+    p.write_text(t, encoding="utf-8")
+
 # Do not globally rewrite registry references: some references are already concrete
 # values or appear in declarations. Targeted copied classes above are adapted separately.
 
