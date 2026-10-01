@@ -22,10 +22,14 @@ for rel in added:
     fs = feature / rel
     src = rs if rs.exists() else fs
     text = src.read_text(encoding="utf-8")
-    if "net.fabricmc." in text:
-        # Keep NeoForge event/render architecture from the official 1.2 source;
-        # the Fabric port is still useful only as an API reference here.
+    if "net.fabricmc.fabric" in text:
+        # Fabric event hooks need the official NeoForge event architecture.
         text = fs.read_text(encoding="utf-8")
+    else:
+        # Most 26.2 Refabricated client classes only carry Fabric side annotations.
+        # Strip those annotations and retain the current 26.2 rendering/model APIs.
+        text = re.sub(r"import net\\.fabricmc\\.api\\.(Environment|EnvType);\\n", "", text)
+        text = re.sub(r"@Environment\\(EnvType\\.CLIENT\\)\\s*", "", text)
     text = text.replace("net.minecraft.resources.ResourceLocation", "net.minecraft.resources.Identifier")
     text = text.replace("ResourceLocation.fromNamespaceAndPath", "Identifier.fromNamespaceAndPath")
     text = text.replace("ResourceLocation.parse", "Identifier.parse")
