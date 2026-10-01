@@ -76,9 +76,6 @@ for relstr in [
     "com/github/ysbbbbbb/kaleidoscopetavern/api/client/IModelModifyRotationAfterBake.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/api/entity/PlayerExtraData.java",
     "com/github/ysbbbbbb/kaleidoscopetavern/effect/ArdentHeatEffect.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/util/ColorUtils.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/item/BottleBlockItem.java",
 ]:
     src = rj / relstr
     if src.exists():
@@ -88,6 +85,36 @@ for relstr in [
         for prefix in ["ModBlocks", "ModItems", "ModDataComponents", "ModSounds", "ModParticles", "ModRecipes"]:
             txt = re.sub(rf"\b{prefix}\.([A-Z][A-Z0-9_]*)(?!\.get\(\))", rf"{prefix}.\1.get()", txt)
         dst.write_text(txt, encoding="utf-8")
+
+# Pull only missing helper methods/fields from the 26.2 reference utilities.
+# Copying the whole utility classes would replace NeoForge-specific ItemStackHandler types.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java"
+src = rj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java"
+if p.exists() and src.exists():
+    t = p.read_text(encoding="utf-8")
+    rt = src.read_text(encoding="utf-8")
+    if "giveItemToPlayer(Player player, ItemStack stack)" not in t:
+        start = rt.index("    public static void giveItemToPlayer(Player player, ItemStack stack)")
+        end = rt.index("    public static ItemStack insertItem(", start)
+        t = t.rsplit("}", 1)[0] + "\n" + rt[start:end] + "}\n"
+        p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ColorUtils.java"
+src = rj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ColorUtils.java"
+if p.exists() and src.exists():
+    # ColorUtils is loader-neutral; unlike ItemUtils it does not alter NeoForge inventory types.
+    p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/item/BottleBlockItem.java"
+src = rj / "com/github/ysbbbbbb/kaleidoscopetavern/item/BottleBlockItem.java"
+if p.exists() and src.exists():
+    t = p.read_text(encoding="utf-8")
+    rt = src.read_text(encoding="utf-8")
+    if "isValidForShaker(ItemStack stack)" not in t:
+        start = rt.index("    public static boolean isValidForShaker(ItemStack stack)")
+        end = rt.index("\n    public ", start + 5)
+        t = t[:t.rfind("}")] + "\n" + rt[start:end] + "\n}\n"
+        p.write_text(t, encoding="utf-8")
 
 # Do not globally rewrite registry references: some references are already concrete
 # values or appear in declarations. Targeted copied classes above are adapted separately.
