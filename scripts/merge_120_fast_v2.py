@@ -149,6 +149,34 @@ if p.exists():
                   "ItemHandlerHelper.insertItemStacked(storage, copy, false)")
     p.write_text(t, encoding="utf-8")
 
+# Finish helper compatibility without replacing NeoForge classes.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java"
+src = rj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java"
+if p.exists() and src.exists():
+    t = p.read_text(encoding="utf-8")
+    rt = src.read_text(encoding="utf-8")
+    if "public static ItemStack insertItem(IItemHandler" not in t:
+        start = rt.index("    public static ItemStack insertItem(IItemHandler")
+        end = rt.rfind("\n}")
+        t = t.rsplit("}", 1)[0] + "\n" + rt[start:end] + "\n}\n"
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/item/BottleBlockItem.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8")
+    if "public static final int MIN_BREW_LEVEL_FOR_SHAKER" not in t:
+        idx = t.index("public class BottleBlockItem") + len("public class BottleBlockItem")
+        brace = t.index("{", idx)
+        t = t[:brace+1] + "\n    public static final int MIN_BREW_LEVEL_FOR_SHAKER = 4;" + t[brace+1:]
+    p.write_text(t, encoding="utf-8")
+
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/blockentity/mixology/ShakerBlockEntity.java"
+if p.exists():
+    t = p.read_text(encoding="utf-8").replace(
+        "ItemHandlerHelper.insertItemStacked(storage, copy, false)",
+        "net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(storage, copy, false)")
+    p.write_text(t, encoding="utf-8")
+
 # Do not globally rewrite registry references: some references are already concrete
 # values or appear in declarations. Targeted copied classes above are adapted separately.
 
