@@ -146,6 +146,21 @@ for relstr in [
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
+# Use the author's current NeoForge grape listeners as the 26.2 runtime implementation.
+# Their behavior matches the 1.2 rules (ice/snow, netherrack/magma, dirt/grass) while
+# avoiding legacy tag/event compatibility problems in the old 1.21.1 listener classes.
+for relstr in [
+    "com/github/ysbbbbbb/kaleidoscopetavern/api/event/PlantGrapeEvent.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/IceGrapePlant.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/GoldGrapePlant.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/NormalGrapePlant.java",
+]:
+    src = bj / relstr
+    if src.exists():
+        dst = wj / relstr
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
 # Keep the official NeoForge 26.1.2 TrellisBlock as the API-compatible shell.
 # It already contains the authoritative PlantGrapeEvent interaction path while using
 # the current ScheduledTickAccess/updateShape and InteractionResult signatures.
