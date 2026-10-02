@@ -68,6 +68,8 @@ jobs:
               assert isinstance(data, dict) and len(data) > 100, (name, len(data))
           PY
           grep -q 'registrar.playToClient(DrinkEffectSyncS2CMessage.TYPE' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java
+          grep -q 'DrinkEffectResolver.entriesFor(level.registryAccess(), drink, brewLevel)' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/item/DrinkBlockItem.java
+          test -f src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/datamap/DrinkEffectResolver.java
           grep -q 'registrar.playToServer(ClearShakerC2SMessage.TYPE' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java
           test "$(find src/main/resources/data/kaleidoscope_tavern -type f | wc -l)" -gt 0
 
