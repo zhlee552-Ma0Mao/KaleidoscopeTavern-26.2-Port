@@ -301,7 +301,11 @@ if barrel_block.exists():
     new = """                    if (!fluidStack.isEmpty()) {
                         boolean vanillaWaterBucket = itemInHand.is(Items.WATER_BUCKET);
                         if (barrelEntity.addFluid(player, itemAccess)) {
-                            if (vanillaWaterBucket && player.getItemInHand(hand).isEmpty()) {
+                            // Tavern 1.2 parity: using a vanilla water bucket must always
+                            // return its empty bucket container. 26.2's fluid transfer may
+                            // leave AIR or another consumed-state stack depending on the
+                            // interaction path, so restore the container explicitly.
+                            if (vanillaWaterBucket) {
                                 player.setItemInHand(hand, new ItemStack(Items.BUCKET));
                             }
                             return InteractionResult.SUCCESS;
