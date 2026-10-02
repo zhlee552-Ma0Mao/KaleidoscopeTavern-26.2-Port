@@ -64,6 +64,20 @@ if neo_util.exists():
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(txt, encoding="utf-8")
 
+# 26.2 NeoForge already has the native registry-backed drink-effect resolver. Keep it
+# as the authoritative runtime path: unlike the Fabric/ref reload-listener map, it is
+# populated by Minecraft's datapack registry and is available server-side when a drink
+# is consumed. This fixes drinks being consumed successfully but applying no effects.
+for relstr in [
+    "com/github/ysbbbbbb/kaleidoscopetavern/datamap/DrinkEffectResolver.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/item/DrinkBlockItem.java",
+]:
+    src = bj / relstr
+    if src.exists():
+        dst = wj / relstr
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
 # Drink effect reload listener is pure Minecraft API in the 26.2 reference.
 for relstr in [
     "com/github/ysbbbbbb/kaleidoscopetavern/datamap/data/DrinkEffectData.java",
