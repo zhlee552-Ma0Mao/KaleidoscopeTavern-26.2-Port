@@ -148,7 +148,7 @@ for relstr in [
 
 # Tavern 1.2 Creative tabs are content-authoritative too.
 # Port the complete 1.2 display list, then adapt only the 26.2 API surface if needed.
-src_tab = aj / "com/github/ysbbbbbb/kaleidoscopetavern/init/ModCreativeTabs.java"
+src_tab = fj / "com/github/ysbbbbbb/kaleidoscopetavern/init/ModCreativeTabs.java"
 if src_tab.exists():
     dst_tab = wj / "com/github/ysbbbbbb/kaleidoscopetavern/init/ModCreativeTabs.java"
     tab_text = src_tab.read_text(encoding="utf-8")
