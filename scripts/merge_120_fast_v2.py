@@ -78,6 +78,36 @@ for relstr in [
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
+# Minecraft 26.2 DrinkEffectData stores a direct Item rather than the old
+# ItemStackTemplate. Keep the native NeoForge registry resolver, but match directly
+# against the drink item so the loaded Tavern 1.2 entries are actually found.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/datamap/DrinkEffectResolver.java"
+if p.exists():
+    rt = p.read_text(encoding="utf-8")
+    rt = rt.replace("import net.minecraft.world.item.ItemStackTemplate;\\n", "")
+    start = rt.index("    public static Optional<DrinkEffectData> get(HolderLookup.Provider registries, ItemStack stack)")
+    end = rt.index("    public static List<DrinkEffectData.Entry> entriesFor(", start)
+    replacement = """    public static Optional<DrinkEffectData> get(HolderLookup.Provider registries, ItemStack stack) {
+        return get(registries, stack.getItem());
+    }
+
+    public static Optional<DrinkEffectData> get(HolderLookup.Provider registries, Item item) {
+        return registries.lookup(ModDatapackRegistries.DRINK_EFFECT).flatMap(lookup -> {
+            var iterator = lookup.listElements().iterator();
+            while (iterator.hasNext()) {
+                DrinkEffectData data = iterator.next().value();
+                if (data.item() == item) {
+                    return Optional.of(data);
+                }
+            }
+            return Optional.empty();
+        });
+    }
+
+"""
+    rt = rt[:start] + replacement + rt[end:]
+    p.write_text(rt, encoding="utf-8")
+
 # Drink effect reload listener is pure Minecraft API in the 26.2 reference.
 for relstr in [
     "com/github/ysbbbbbb/kaleidoscopetavern/datamap/data/DrinkEffectData.java",
