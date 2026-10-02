@@ -151,9 +151,11 @@ p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
 src = fj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
 if p.exists() and src.exists():
     current = p.read_text(encoding="utf-8")
-    if "PlantGrapeEvent" not in current or "NeoForge.EVENT_BUS.post(new PlantGrapeEvent" not in current:
-        # 1.2 TrellisBlock is NeoForge-native and is the authoritative event source.
-        p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    # The 26.2 scaffold still contains an older planting path that can mention the
+    # event without actually matching Tavern 1.2 interaction semantics. Always restore
+    # the authoritative 1.2 TrellisBlock here; later compatibility passes compile it
+    # against 26.2 just like the other native feature classes.
+    p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
 # Pull only missing helper methods/fields from the 26.2 reference utilities.
 # Copying the whole utility classes would replace NeoForge-specific ItemStackHandler types.
