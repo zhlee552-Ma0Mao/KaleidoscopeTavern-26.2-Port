@@ -30,6 +30,17 @@ generated = feature / "src/generated/resources"
 if generated.exists():
     shutil.copytree(generated, work / "src/main/resources", dirs_exist_ok=True)
 
+# NeoForge 26.2 uses the registry-backed Tavern drink-effect format from the official
+# 26.1.2 scaffold. The Refabricated overlay below stores a different loader format under
+# datamap/drink_effect; keep the native registry files so DrinkEffectResolver can find
+# effects at runtime. Without these files drinks work but no nausea/tipsy effect is added.
+base_generated = base / "src/generated/resources/data/kaleidoscope_tavern/kaleidoscope_tavern/drink_effect"
+native_drink_effect = work / "src/main/resources/data/kaleidoscope_tavern/kaleidoscope_tavern/drink_effect"
+if base_generated.exists():
+    native_drink_effect.mkdir(parents=True, exist_ok=True)
+    for src in base_generated.glob("*.json"):
+        shutil.copy2(src, native_drink_effect / src.name)
+
 # Overlay the Refabricated 26.2 resource conversion last. The original 1.2 assets
 # use pre-26.2 item/model resource layouts; the 26.2 reference keeps the same
 # Tavern artwork/content while supplying Minecraft 26.2-compatible JSON paths.
