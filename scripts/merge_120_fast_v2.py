@@ -146,15 +146,12 @@ for relstr in [
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
-# Ensure the current 26.2 TrellisBlock actually posts the 1.2 planting event.
+# Keep the official NeoForge 26.1.2 TrellisBlock as the API-compatible shell.
+# It already contains the authoritative PlantGrapeEvent interaction path while using
+# the current ScheduledTickAccess/updateShape and InteractionResult signatures.
 p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
-src = fj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
+src = bj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
 if p.exists() and src.exists():
-    current = p.read_text(encoding="utf-8")
-    # The 26.2 scaffold still contains an older planting path that can mention the
-    # event without actually matching Tavern 1.2 interaction semantics. Always restore
-    # the authoritative 1.2 TrellisBlock here; later compatibility passes compile it
-    # against 26.2 just like the other native feature classes.
     p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
 # Pull only missing helper methods/fields from the 26.2 reference utilities.
