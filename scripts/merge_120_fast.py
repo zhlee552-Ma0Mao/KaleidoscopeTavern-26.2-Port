@@ -1,5 +1,5 @@
 from pathlib import Path
-import shutil, re
+import shutil, re, json
 
 root = Path(__file__).resolve().parents[1]
 work = root / "work"
@@ -39,7 +39,23 @@ native_drink_effect = work / "src/main/resources/data/kaleidoscope_tavern/kaleid
 if base_generated.exists():
     native_drink_effect.mkdir(parents=True, exist_ok=True)
     for src in base_generated.glob("*.json"):
-        shutil.copy2(src, native_drink_effect / src.name)
+        # Preserve every Tavern 1.2 effect value, but encode it with the Minecraft 26.2
+        # DrinkEffectData codec: item is a registry id string and effects is an ordered
+        # brew-level array. This is representation-only; durations/amplifiers/probabilities
+        # and the level 1..6 grouping are unchanged.
+        raw = json.loads(src.read_text(encoding="utf-8"))
+        item_value = raw.get("item")
+        if isinstance(item_value, dict):
+            item_value = item_value.get("id")
+        levels = raw.get("effects", {})
+        if isinstance(levels, dict):
+            ordered = [levels.get(str(level), []) for level in range(1, 7)]
+        else:
+            ordered = levels
+        converted = {"item": item_value, "effects": ordered}
+        (native_drink_effect / src.name).write_text(
+            json.dumps(converted, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
 
 # Overlay the Refabricated 26.2 resource conversion last. The original 1.2 assets
 # use pre-26.2 item/model resource layouts; the 26.2 reference keeps the same
