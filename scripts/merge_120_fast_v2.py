@@ -130,6 +130,31 @@ for relstr in [
             txt = re.sub(rf"\b{prefix}\.([A-Z][A-Z0-9_]*)(?!\.get\(\))", rf"{prefix}.\1.get()", txt)
         dst.write_text(txt, encoding="utf-8")
 
+# Restore Tavern 1.2 grape variety planting as one complete feature chain.
+# TrellisBlock posts PlantGrapeEvent; Ice/Gold/Normal listeners select the exact
+# upstream variety based on the block below. Copy the authoritative NeoForge 1.2
+# implementation so snow/ice and netherrack/magma behavior is not reimplemented.
+for relstr in [
+    "com/github/ysbbbbbb/kaleidoscopetavern/api/event/PlantGrapeEvent.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/IceGrapePlant.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/GoldGrapePlant.java",
+    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/NormalGrapePlant.java",
+]:
+    src = fj / relstr
+    if src.exists():
+        dst = wj / relstr
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+# Ensure the current 26.2 TrellisBlock actually posts the 1.2 planting event.
+p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
+src = fj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
+if p.exists() and src.exists():
+    current = p.read_text(encoding="utf-8")
+    if "PlantGrapeEvent" not in current or "NeoForge.EVENT_BUS.post(new PlantGrapeEvent" not in current:
+        # 1.2 TrellisBlock is NeoForge-native and is the authoritative event source.
+        p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
 # Pull only missing helper methods/fields from the 26.2 reference utilities.
 # Copying the whole utility classes would replace NeoForge-specific ItemStackHandler types.
 p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/util/ItemUtils.java"
