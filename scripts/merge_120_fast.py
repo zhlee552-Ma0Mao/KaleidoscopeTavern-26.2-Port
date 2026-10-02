@@ -84,7 +84,7 @@ if lang_dir.exists():
             merged_lang.update(json.loads(lang_file.read_text(encoding="utf-8")))
         except Exception:
             pass
-        lang_file.write_text(json.dumps(merged_lang, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        lang_file.write_text(json.dumps(merged_lang, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 # The 26.2 SandwichBoardBlockItem intentionally uses one shared item translation key.
 # Official 1.2 language files still carry the old block key, so mirror it to the item key.
@@ -98,7 +98,7 @@ if lang_dir.exists():
         item_key = "item.kaleidoscope_tavern.sandwich_board"
         if item_key not in data and block_key in data:
             data[item_key] = data[block_key]
-            lang_file.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+            lang_file.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 base_java = base / "src/main/java"
 feature_java = feature / "src/main/java"
@@ -305,7 +305,7 @@ for source in [
 if not zh_data:
     raise SystemExit("No valid upstream zh_cn translation data found")
 for name in ["zh_cn.json", "zh_tw.json"]:
-    (lang_dir / name).write_text(json.dumps(zh_data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    (lang_dir / name).write_text(json.dumps(zh_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 # Mark this build as a real 1.2 merge attempt.
 gp = work / "gradle.properties"
