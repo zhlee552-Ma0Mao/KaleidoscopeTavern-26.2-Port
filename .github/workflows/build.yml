@@ -47,7 +47,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re, sys
-          official = Path("feature/src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/init/ModItems.java").read_text(encoding="utf-8")
+          official = Path("upstream-official-1.21.1/src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/init/ModItems.java").read_text(encoding="utf-8")
           built = Path("work/src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/init/ModItems.java").read_text(encoding="utf-8")
           ids = sorted(set(re.findall(r'ITEMS\\.register\\("([^"]+)"', official)))
           missing = [x for x in ids if f'ITEMS.register("{x}"' not in built]
