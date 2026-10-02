@@ -49,7 +49,7 @@ jobs:
           import re, sys
           official = Path("upstream-official-1.21.1/src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/init/ModItems.java").read_text(encoding="utf-8")
           built = Path("work/src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/init/ModItems.java").read_text(encoding="utf-8")
-          ids = sorted(set(re.findall(r'ITEMS\\.register\\("([^"]+)"', official)))
+          ids = sorted(set(re.findall(r'ITEMS\.register\("([^"]+)"', official)))
           missing = [x for x in ids if f'ITEMS.register("{x}"' not in built]
           print(f"Official Tavern 1.2 registered items: {len(ids)}")
           print(f"Missing from 26.2 generated source: {missing}")
