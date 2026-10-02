@@ -315,6 +315,42 @@ if barrel_block.exists():
         t = t.replace(old, new)
     barrel_block.write_text(t, encoding="utf-8")
 
+# 26.2 parity: when an empty vanilla bucket extracts Tavern fluid, FluidUtils.fillItem
+# consumes the held BUCKET and returns the filled container via inventory. In the 26.2
+# interaction path that returned container can be lost client-side/server-side. Preserve
+# the exact transfer result by putting the newly-created container back into the hand
+# when extraction consumed the held bucket.
+fluid_utils = work_java / "com/github/ysbbbbbb/kaleidoscopetavern/util/FluidUtils.java"
+if fluid_utils.exists():
+    t = fluid_utils.read_text(encoding="utf-8")
+    old = """                // 扣除玩家物品
+                if (!(user instanceof Player player) || !player.isCreative()) {
+                    bucket.shrink(1);
+                }
+                // 给实体物品
+                ItemUtils.getItemToLivingEntity(user, result);"""
+    new = """                // 扣除玩家物品，并确保 26.2 把装满后的容器真正交还给玩家。
+                if (user instanceof Player player && !player.isCreative()) {
+                    bucket.shrink(1);
+                    if (bucket.isEmpty()) {
+                        player.setItemInHand(player.getUsedItemHand(), result.copy());
+                    } else {
+                        ItemUtils.getItemToLivingEntity(user, result);
+                    }
+                } else {
+                    ItemUtils.getItemToLivingEntity(user, result);
+                }"""
+    # Only patch fillItem: the same text appears in emptyItem too, so replace the
+    # occurrence after the fillItem method declaration.
+    marker = "public static boolean fillItem"
+    idx = t.find(marker)
+    if idx >= 0:
+        head, tail = t[:idx], t[idx:]
+        if old in tail:
+            tail = tail.replace(old, new, 1)
+            t = head + tail
+    fluid_utils.write_text(t, encoding="utf-8")
+
 # Reconstruct zh_cn from three clean upstream sources. This deliberately ignores the
 # already-overlaid file because older merge stages can leave concatenated JSON in it.
 def load_lang(path):
