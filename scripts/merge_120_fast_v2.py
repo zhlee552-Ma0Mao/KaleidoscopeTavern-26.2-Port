@@ -130,54 +130,9 @@ for relstr in [
             txt = re.sub(rf"\b{prefix}\.([A-Z][A-Z0-9_]*)(?!\.get\(\))", rf"{prefix}.\1.get()", txt)
         dst.write_text(txt, encoding="utf-8")
 
-# Restore Tavern 1.2 grape variety planting as one complete feature chain.
-# TrellisBlock posts PlantGrapeEvent; Ice/Gold/Normal listeners select the exact
-# upstream variety based on the block below. Copy the authoritative NeoForge 1.2
-# implementation so snow/ice and netherrack/magma behavior is not reimplemented.
-for relstr in [
-    "com/github/ysbbbbbb/kaleidoscopetavern/api/event/PlantGrapeEvent.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/IceGrapePlant.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/GoldGrapePlant.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/NormalGrapePlant.java",
-]:
-    src = fj / relstr
-    if src.exists():
-        dst = wj / relstr
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-
-# Tavern 1.2 Creative tabs are content-authoritative too.
-# Port the complete 1.2 display list, then adapt only the 26.2 API surface if needed.
-src_tab = fj / "com/github/ysbbbbbb/kaleidoscopetavern/init/ModCreativeTabs.java"
-if src_tab.exists():
-    dst_tab = wj / "com/github/ysbbbbbb/kaleidoscopetavern/init/ModCreativeTabs.java"
-    tab_text = src_tab.read_text(encoding="utf-8")
-    # 26.2 DeferredRegister API is compatible with the current NeoForge shell used by the port.
-    dst_tab.parent.mkdir(parents=True, exist_ok=True)
-    dst_tab.write_text(tab_text, encoding="utf-8")
-
-# Use the author's current NeoForge grape listeners as the 26.2 runtime implementation.
-# Their behavior matches the 1.2 rules (ice/snow, netherrack/magma, dirt/grass) while
-# avoiding legacy tag/event compatibility problems in the old 1.21.1 listener classes.
-for relstr in [
-    "com/github/ysbbbbbb/kaleidoscopetavern/api/event/PlantGrapeEvent.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/IceGrapePlant.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/GoldGrapePlant.java",
-    "com/github/ysbbbbbb/kaleidoscopetavern/game/grape/NormalGrapePlant.java",
-]:
-    src = bj / relstr
-    if src.exists():
-        dst = wj / relstr
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-
-# Keep the official NeoForge 26.1.2 TrellisBlock as the API-compatible shell.
-# It already contains the authoritative PlantGrapeEvent interaction path while using
-# the current ScheduledTickAccess/updateShape and InteractionResult signatures.
-p = wj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
-src = bj / "com/github/ysbbbbbb/kaleidoscopetavern/block/plant/TrellisBlock.java"
-if p.exists() and src.exists():
-    p.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+# Preserve the native 26.2 grape planting entry path from the NeoForge scaffold.
+# Do not replace TrellisBlock or the whole PlantGrapeEvent/listener chain here;
+# Tavern 1.2 content is merged separately so working 26.2 planting is not regressed.
 
 # Pull only missing helper methods/fields from the 26.2 reference utilities.
 # Copying the whole utility classes would replace NeoForge-specific ItemStackHandler types.
