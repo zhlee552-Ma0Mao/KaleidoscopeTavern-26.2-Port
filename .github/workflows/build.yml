@@ -41,6 +41,22 @@ jobs:
           wc -l merged-files.txt || true
           head -100 merged-files.txt || true
 
+      - name: Validate official Tavern 1.2 content parity
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, sys
+          official = Path("feature/src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/init/ModItems.java").read_text(encoding="utf-8")
+          built = Path("work/src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/init/ModItems.java").read_text(encoding="utf-8")
+          ids = sorted(set(re.findall(r'ITEMS\\.register\\("([^"]+)"', official)))
+          missing = [x for x in ids if f'ITEMS.register("{x}"' not in built]
+          print(f"Official Tavern 1.2 registered items: {len(ids)}")
+          print(f"Missing from 26.2 generated source: {missing}")
+          if missing:
+              sys.exit(1)
+          PY
+
       - name: Validate Tavern 1.2 resources
         working-directory: work
         run: |
