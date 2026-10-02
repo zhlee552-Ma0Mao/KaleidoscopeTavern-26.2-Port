@@ -58,6 +58,15 @@ jobs:
           grep -q 'IntegerProperty ROTATION = BlockStateProperties.ROTATION_16' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/block/deco/SandwichBoardBlock.java
           grep -q 'builder.add(ROTATION, HALF, WATERLOGGED)' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/block/deco/SandwichBoardBlock.java
           grep -q 'item.kaleidoscope_tavern.sandwich_board' src/main/resources/assets/kaleidoscope_tavern/lang/zh_cn.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lang = Path("src/main/resources/assets/kaleidoscope_tavern/lang")
+          for name in ("en_us.json", "zh_cn.json", "zh_tw.json"):
+              p = lang / name
+              data = json.loads(p.read_text(encoding="utf-8"))
+              assert isinstance(data, dict) and len(data) > 100, (name, len(data))
+          PY
           grep -q 'registrar.playToClient(DrinkEffectSyncS2CMessage.TYPE' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java
           grep -q 'registrar.playToServer(ClearShakerC2SMessage.TYPE' src/main/java/com/github/ysbbbbbb/kaleidoscopetavern/network/NetworkHandler.java
           test "$(find src/main/resources/data/kaleidoscope_tavern -type f | wc -l)" -gt 0
