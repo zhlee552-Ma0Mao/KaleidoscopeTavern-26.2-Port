@@ -110,8 +110,23 @@ jobs:
           rm -rf run/server/world run/server/logs
           ./gradlew --no-daemon runServer > ../server-first.log 2>&1 &
           SERVER_PID=$!
-          for i in {1..75}; do grep -q "Done (" run/server/logs/latest.log 2>/dev/null && break; sleep 2; done
-          grep -q "Done (" run/server/logs/latest.log
+          for i in {1..75}; do
+            grep -q "Done (" run/server/logs/latest.log 2>/dev/null && break
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+              echo "Server exited before startup completed"
+              cat run/server/logs/latest.log 2>/dev/null || true
+              wait $SERVER_PID || true
+              exit 1
+            fi
+            sleep 2
+          done
+          if ! grep -q "Done (" run/server/logs/latest.log 2>/dev/null; then
+            echo "Server startup timed out; latest.log follows"
+            cat run/server/logs/latest.log 2>/dev/null || true
+            kill $SERVER_PID 2>/dev/null || true
+            wait $SERVER_PID 2>/dev/null || true
+            exit 1
+          fi
           python3 - <<'PY'
           import socket,struct,time
           def packet(i,t,s):
