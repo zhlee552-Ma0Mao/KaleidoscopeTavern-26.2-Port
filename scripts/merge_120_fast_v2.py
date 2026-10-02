@@ -146,6 +146,16 @@ for relstr in [
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
 
+# Tavern 1.2 Creative tabs are content-authoritative too.
+# Port the complete 1.2 display list, then adapt only the 26.2 API surface if needed.
+src_tab = aj / "com/github/ysbbbbbb/kaleidoscopetavern/init/ModCreativeTabs.java"
+if src_tab.exists():
+    dst_tab = wj / "com/github/ysbbbbbb/kaleidoscopetavern/init/ModCreativeTabs.java"
+    tab_text = src_tab.read_text(encoding="utf-8")
+    # 26.2 DeferredRegister API is compatible with the current NeoForge shell used by the port.
+    dst_tab.parent.mkdir(parents=True, exist_ok=True)
+    dst_tab.write_text(tab_text, encoding="utf-8")
+
 # Use the author's current NeoForge grape listeners as the 26.2 runtime implementation.
 # Their behavior matches the 1.2 rules (ice/snow, netherrack/magma, dirt/grass) while
 # avoiding legacy tag/event compatibility problems in the old 1.21.1 listener classes.
